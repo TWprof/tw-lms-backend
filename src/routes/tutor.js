@@ -8,11 +8,7 @@ router.get("/dashboard", authenticate, tutorController.tutorStats);
 
 router.get("/my-courses", authenticate, tutorController.tutorCourses);
 
-// router.get(
-//   "/students",
-//   authenticate,
-//   tutorController.tutorStudentController
-// );
+router.get("/students", authenticate, tutorController.tutorStudents);
 
 router.get("/transactions", authenticate, tutorController.tutorTransactions);
 

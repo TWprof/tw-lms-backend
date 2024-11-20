@@ -390,7 +390,7 @@ export default class TutorClass {
 
   async tutorTransactions(tutorId) {
     try {
-      // Fetch the courses associated with the tutor
+      // Fetch courses created by the tutor
       const courseIds = await Course.distinct("_id", { tutor: tutorId });
 
       if (courseIds.length === 0) {
@@ -400,23 +400,25 @@ export default class TutorClass {
         );
       }
 
-      // Fetch successful payments for courses taught by the tutor, excluding empty carts
-      const payments = await Payment.find({
-        cartIds: { $in: courseIds }, // Match cartIds with the tutor's course IDs
-        status: "success", // Only successful payments
+      // Fetch all purchased courses for the tutor's courses
+      const purchasedCourses = await PurchasedCourse.find({
+        courseId: { $in: courseIds },
       })
+        .populate({
+          path: "paymentId",
+          select: "amount email reference paidAt status",
+          match: { status: "success" },
+        })
         .populate({
           path: "studentId",
           select: "firstName lastName",
-          model: "Student",
         })
         .populate({
-          path: "cartIds", // Populate course information from the cartIds
-          select: "title price",
-          model: "Course",
+          path: "courseId",
+          select: "title",
         });
 
-      if (payments.length === 0) {
+      if (!purchasedCourses || purchasedCourses.length === 0) {
         return responses.failureResponse(
           "No transactions found for this tutor's courses.",
           404
@@ -428,8 +430,11 @@ export default class TutorClass {
       let totalCharges = 0;
       const transactionHistory = [];
 
-      // Process the payment data
-      payments.forEach((payment) => {
+      // Process purchased courses to extract transactions
+      purchasedCourses.forEach((purchase) => {
+        const payment = purchase.paymentId;
+        if (!payment) return;
+
         const paymentAmount = payment.amount || 0;
 
         // Add to total income
@@ -440,15 +445,11 @@ export default class TutorClass {
         totalCharges += charge;
 
         // Extract student and course details
-        const studentName = payment.studentId
-          ? `${payment.studentId.firstName || "N/A"} ${
-              payment.studentId.lastName || "N/A"
+        const studentName = purchase.studentId
+          ? `${purchase.studentId.firstName || "N/A"} ${
+              purchase.studentId.lastName || "N/A"
             }`
           : "Unknown Student";
-
-        const courseTitles = payment.cartIds
-          .map((course) => course.title)
-          .join(", ");
 
         // Build transaction history entry
         transactionHistory.push({
@@ -456,7 +457,7 @@ export default class TutorClass {
           amount: paymentAmount,
           date: payment.paidAt,
           reference: payment.reference || "N/A",
-          courses: courseTitles,
+          courses: purchase.courseId.title || "Unknown Course",
           studentName,
         });
       });
@@ -481,7 +482,7 @@ export default class TutorClass {
 
   async tutorStudents(tutorId) {
     try {
-      // first get the courses by that tutor
+      // Fetch courses taught by the tutor
       const courses = await Course.find({ tutor: tutorId }).select("_id");
 
       if (!courses || courses.length === 0) {
@@ -493,8 +494,8 @@ export default class TutorClass {
 
       const tutorCourseIds = courses.map((course) => course._id);
 
-      // student Transaction Details
-      const studentDetails = await PurchasedCourses.aggregate([
+      // Fetch student details for the tutor's courses
+      const studentDetails = await PurchasedCourse.aggregate([
         {
           $match: {
             courseId: { $in: tutorCourseIds },
@@ -502,14 +503,14 @@ export default class TutorClass {
         },
         {
           $lookup: {
-            from: "users",
-            localField: "userId",
+            from: "students", // Updated to reference the Student collection
+            localField: "studentId", // Correct field for the student reference
             foreignField: "_id",
-            as: "userDetails",
+            as: "studentDetails",
           },
         },
         {
-          $unwind: "$userDetails",
+          $unwind: "$studentDetails",
         },
         {
           $lookup: {
@@ -524,8 +525,8 @@ export default class TutorClass {
         },
         {
           $group: {
-            _id: "$userId",
-            userInfo: { $first: "$userDetails" },
+            _id: "$studentId",
+            studentInfo: { $first: "$studentDetails" },
             coursesPurchased: {
               $push: {
                 courseId: "$courseDetails._id",
@@ -538,45 +539,53 @@ export default class TutorClass {
         },
         {
           $project: {
-            "userInfo.firstName": 1,
-            "userInfo.lastName": 1,
-            "userInfo.email": 1,
+            "studentInfo.firstName": 1,
+            "studentInfo.lastName": 1,
+            "studentInfo.email": 1,
             coursesPurchased: 1,
           },
         },
       ]);
 
-      // to calculate the new students that purchase a course every month
+      // Calculate new students within the last 30 days
       const today = new Date();
-
       const thirtyDaysAgo = new Date(today.setDate(today.getDate() - 30));
 
-      // New students from last 30 days
       const newStudents = studentDetails.filter((student) =>
         student.coursesPurchased.some(
-          (course) => course.purchaseDate >= thirtyDaysAgo
+          (course) => new Date(course.purchaseDate) >= thirtyDaysAgo
         )
       );
 
-      // to calculate the student retention percentage
-      const totalCompletion = await PurchasedCourses.countDocuments({
+      // Calculate retention percentage (completed courses by students)
+      const totalCompletion = await PurchasedCourse.countDocuments({
         courseId: { $in: tutorCourseIds },
         isCompleted: true,
       });
-      const retentionPercentage =
-        (totalCompletion / studentDetails.length) * 100;
 
-      // Calculate the total revenue
+      const retentionPercentage =
+        studentDetails.length > 0
+          ? (totalCompletion / studentDetails.length) * 100
+          : 0;
+
+      // Calculate total amount using paymentId from PurchasedCourse
+      const paymentIds = await PurchasedCourse.distinct("paymentId", {
+        courseId: { $in: tutorCourseIds },
+      });
+
       const totalAmount = await Payment.aggregate([
         {
           $match: {
+            _id: { $in: paymentIds },
             status: "success",
-            cartIds: {
-              $elemMatch: { $in: tutorCourseIds.map((id) => id.toString()) },
-            },
           },
         },
-        { $group: { _id: null, total: { $sum: "$amount" } } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$amount" },
+          },
+        },
       ]);
 
       const totalAmountValue =
@@ -594,7 +603,7 @@ export default class TutorClass {
         studentDetails,
       });
     } catch (error) {
-      console.error("There was an error ", error);
+      console.error("There was an error:", error);
       return responses.failureResponse(
         "There was an error getting this information",
         500
