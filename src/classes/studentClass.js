@@ -24,7 +24,7 @@ export default class StudentClass {
     const message = `
   <h1>Email Verification</h1>
             <p>Thank you for registering. Please confirm your email by clicking this link:</p>
-           <a href = ${process.env.HOST}verified-email?verificationToken=${payload.verificationToken}> Verify your email </a>
+           <a href = ${process.env.STUDENT_FRONTEND_HOST}verified-email?verificationToken=${payload.verificationToken}> Verify your email </a>
 
   `;
 

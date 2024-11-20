@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import bodyParser from "body-parser";
 import fileUpload from "express-fileupload";
 
+import seedAdmin from "./utils/seedAdmin.js";
 import connectDB from "./config/database.js";
 import studentRoutes from "./routes/students.js";
 import adminRoutes from "./routes/admin.js";
@@ -23,6 +24,7 @@ const PORT = process.env.PORT || 3000;
 
 //Database
 connectDB();
+seedAdmin();
 
 const corsOptions = {
   origin: true,
