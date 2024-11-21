@@ -1,0 +1,20 @@
+# Learning Management System (LMS)
+
+## Description
+
+This Learning Management System (LMS) allows students to enroll in courses, interact with tutors, and track their learning progress. Tutors can manage their courses, view earnings, and communicate with students.
+
+Key features include:
+
+- Course enrollment and management
+- Tutor-student messaging
+- Payment integration (Paystack, etc.)
+- User-friendly dashboards for tutors and students
+
+## Technologies Used
+
+- **Backend**: Node.js, Express.js
+- **Database**: MongoDB
+- **Payment Gateway**: Paystack
+- **Authentication**: JWT
+- **Other Tools**: Mongoose, Dotenv

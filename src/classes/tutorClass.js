@@ -503,8 +503,8 @@ export default class TutorClass {
         },
         {
           $lookup: {
-            from: "students", // Updated to reference the Student collection
-            localField: "studentId", // Correct field for the student reference
+            from: "students",
+            localField: "studentId",
             foreignField: "_id",
             as: "studentDetails",
           },
