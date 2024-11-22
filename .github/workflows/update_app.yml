@@ -20,7 +20,7 @@ jobs:
             private_key: ${{ secrets.PRIVATE_KEY }}
             host_fingerprint: ${{ secrets.HOST_FINGERPRINT }}
             command: |
-              git -C ~/lms_backend/ pull origin main
+              git -C ~/tw-lms-backend/ pull origin main
   job2:
       runs-on: ubuntu-latest 
       needs: [job1]
