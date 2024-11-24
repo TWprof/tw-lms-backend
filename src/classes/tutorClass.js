@@ -378,6 +378,9 @@ export default class TutorClass {
           weekly: revenueData.weeklyRevenue,
           monthly: revenueData.monthlyRevenue,
         },
+        coursesData: {
+          coursesData,
+        },
       });
     } catch (error) {
       console.error("There was an error fetching tutor courses:", error);
