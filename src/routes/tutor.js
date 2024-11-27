@@ -12,4 +12,10 @@ router.get("/students", authenticate, tutorController.tutorStudents);
 
 router.get("/transactions", authenticate, tutorController.tutorTransactions);
 
+router.get(
+  "/course-analytics",
+  authenticate,
+  tutorController.tutorCourseAnalytics
+);
+
 export default router;

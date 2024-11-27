@@ -303,68 +303,22 @@ export default class CourseClass {
   }
 
   // This endpoint will track the courses that were viewed but not purchased
-  async viewOrPurchaseCourse(courseId, studentId, action) {
+  async courseViews(courseId) {
     try {
-      // check if the user has purchased the course
-      const isPurchased = await PurchasedCourse.exists({ courseId, studentId });
+      const course = await Course.findByIdAndUpdate(
+        courseId,
+        { $inc: { views: 1 } },
+        { new: true }
+      );
 
-      if (action === "view") {
-        if (!isPurchased) {
-          // Increment the view if course not purchased
-          const course = await Course.findByIdAndUpdate(
-            courseId,
-            { $inc: { views: 1 } },
-            { new: true }
-          );
-
-          if (!course) {
-            return responses.failureResponse("This course does not exist", 404);
-          }
-
-          return responses.successResponse(
-            "Course viewed successfully",
-            200,
-            course
-          );
-        } else {
-          return responses.successResponse(
-            "This has already been purchased",
-            200,
-            isPurchased
-          );
-        }
+      if (!course) {
+        return responses.failureResponse("Course not found", 404);
       }
 
-      if (action === "purchase") {
-        if (isPurchased) {
-          return responses.failureResponse(
-            "This course has already been purchased",
-            400
-          );
-        }
-
-        await new PurchasedCourse({
-          courseId,
-          studentId,
-          purchaseDate: new Date(),
-        });
-
-        const course = await Course.findByIdAndUpdate(
-          courseId,
-          { $inc: { views: -1 } },
-          { new: true }
-        );
-
-        return responses.successResponse(
-          "Course prchased sccessfully",
-          200,
-          course
-        );
-      }
-
-      return responses.failureResponse("Invalid action", 400);
+      return responses.successResponse("View count incremented", 200);
     } catch (error) {
-      console.error("There was an error", error);
+      console.error("There was error", error);
+      return responses.failureResponse("There was an error", 500);
     }
   }
 }
