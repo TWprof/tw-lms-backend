@@ -41,6 +41,16 @@ const tutorController = {
     const data = await new TutorClass().tutorStudents(tutorId);
     res.status(data.statusCode).json(data);
   },
+
+  tutorCourseAnalytics: async (req, res) => {
+    const tutorId = req.user._id;
+
+    if (req.role != "1") {
+      return res.status(403).json({ message: "Tutors only" });
+    }
+    const data = await new TutorClass().tutorCourseAnalytics(tutorId);
+    res.status(data.statusCode).json(data);
+  },
 };
 
 export default tutorController;

@@ -58,15 +58,9 @@ const courseController = {
     res.status(data.statusCode).json(data);
   },
 
-  viewOrPurchaseCourse: async (req, res) => {
+  courseViews: async (req, res) => {
     const { courseId } = req.params;
-    const studentId = req.user.id;
-    const { action } = req.body;
-    const data = await new CourseClass().viewOrPurchaseCourse(
-      courseId,
-      studentId,
-      action
-    );
+    const data = await new CourseClass().courseViews(courseId);
     res.status(data.statusCode).json(data);
   },
 };
