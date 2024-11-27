@@ -23,11 +23,7 @@ router.post("/:courseId/rate", authenticate, courseController.rateCourse);
 // Route to get a single course
 router.get("/:courseId", courseController.getEachCourse);
 
-// route to view or purchase a course
-router.post(
-  "/:courseId/action",
-  authenticate,
-  courseController.viewOrPurchaseCourse
-);
+// route to view course
+router.get("/:courseId/view", authenticate, courseController.courseViews);
 
 export default router;

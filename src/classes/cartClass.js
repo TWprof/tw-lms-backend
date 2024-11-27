@@ -200,7 +200,7 @@ export default class CartClass {
 
       const body = {
         email,
-        amount: totalCartPrice * 100, // Paystack expects amount in kobo
+        amount: totalCartPrice * 100,
         reference: generateReference(),
         metadata: { cartIds, studentId, courseIds },
       };
