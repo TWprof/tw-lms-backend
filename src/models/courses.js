@@ -96,11 +96,6 @@ const courseSchema = new mongoose.Schema(
       default: 0,
     },
 
-    viewsCount: {
-      type: Number,
-      default: 0,
-    },
-
     purchaseCount: {
       type: Number,
       default: 0,

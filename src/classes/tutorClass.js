@@ -1,7 +1,6 @@
 import Course from "../models/courses.js";
 import Payment from "../models/payment.js";
 import PurchasedCourse from "../models/purchasedCourse.js";
-import Cart from "../models/cart.js";
 import Review from "../models/review.js";
 import responses from "../utils/response.js";
 
@@ -609,6 +608,64 @@ export default class TutorClass {
       console.error("There was an error:", error);
       return responses.failureResponse(
         "There was an error getting this information",
+        500
+      );
+    }
+  }
+
+  async tutorCourseAnalytics(tutorId) {
+    try {
+      const courses = await Course.find({ tutor: tutorId }).select(
+        "title views"
+      );
+
+      const purchaseCounts = await PurchasedCourse.aggregate([
+        {
+          $lookup: {
+            from: "courses",
+            localField: "courseId",
+            foreignField: "_id",
+            as: "course",
+          },
+        },
+        { $unwind: "$course" },
+        { $match: { "course.tutor": tutorId } },
+        {
+          $group: {
+            _id: "$courseId",
+            purchaseCount: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const analytics = courses.map((course) => {
+        const purchaseData = purchaseCounts.find(
+          (item) => item._id.toString() === course._id.toString()
+        );
+
+        const purchaseCount = purchaseData ? purchaseData.purchaseCount : 0;
+        // To check how many views became purchases
+        const purchasePercentage = course.views
+          ? ((purchaseCount / course.views) * 100).toFixed(2)
+          : 0;
+        return {
+          courseId: course._id,
+          title: course.title,
+          views: course.views,
+          purchases: purchaseCount,
+          purchasePercentage: `${purchasePercentage}%`,
+        };
+      });
+
+      return responses.successResponse(
+        "Tutor Course analytics retrieved successfully",
+        200,
+        analytics
+      );
+    } catch (error) {
+      console.error("There was an error", error);
+      return responses.failureResponse(
+        "Unable to retrieve Course analytics",
         500
       );
     }
