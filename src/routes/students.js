@@ -7,7 +7,7 @@ const router = Router();
 // signup route
 router.post("/signup", studentController.studentSignUp);
 // verify email route
-router.get("/verified-email", studentController.verifySignUp);
+router.get("/verify-email", studentController.verifySignUp);
 
 // login route
 router.post("/login", studentController.studentLogin);
