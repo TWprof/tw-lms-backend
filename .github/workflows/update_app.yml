@@ -1,4 +1,4 @@
-name: Deploying to EC2 Instance
+name: Deploying to Server
 on:
   push:
     branches: [ main ]
