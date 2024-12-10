@@ -7,6 +7,7 @@ import responses from "../utils/response.js";
 import sendMail from "../utils/mail.js";
 import constants from "../constants/index.js";
 import generateResetPin from "../utils/generateOtp.js";
+import getTemplate from "../utils/getTemplates.js";
 import crypto from "crypto";
 
 export default class StudentClass {
@@ -16,22 +17,25 @@ export default class StudentClass {
     if (foundStudent) {
       return responses.failureResponse("Email already exists", 400);
     }
+
+    // Hash password and generate verification token
     payload.password = await bcrypt.hash(payload.password, 10);
     payload.verificationToken = crypto.randomBytes(32).toString("hex");
     payload.verificationTokenExpires = new Date(Date.now() + 3600000);
 
+    // Save student data
     await Student.create(payload);
-    const message = `
-  <h1>Email Verification</h1>
-            <p>Thank you for registering. Please confirm your email by clicking this link:</p>
-           <a href = ${process.env.STUDENT_FRONTEND_HOST}verified-email?verificationToken=${payload.verificationToken}> Verify your email </a>
 
-  `;
-
+    // Use email template
+    const verificationLink = `${process.env.STUDENT_FRONTEND_HOST}/verified-email?verificationToken=${payload.verificationToken}`;
+    const emailTemplate = getTemplate("verifyemail.html", {
+      firstName: payload.firstName,
+      verificationLink,
+    });
     const emailPayload = {
       to: payload.email,
       subject: "VERIFY YOUR EMAIL",
-      message: message,
+      message: emailTemplate,
     };
     // send email by calling sendMail function
     await sendMail(emailPayload, constants.verifyEmail);
@@ -140,13 +144,17 @@ export default class StudentClass {
         { new: true }
       );
 
-      const message = `Please use this pin to reset your password ${resetPin}`;
+      //use email template
+      const emailTemplate = getTemplate("resetpin.html", {
+        firstName: emailFound.firstName,
+        pin: resetPin,
+      });
 
       const forgotPasswordPayload = {
         to: updateStudent.email,
         subject: "RESET PASSWORD",
         pin: resetPin,
-        message: message,
+        message: emailTemplate,
       };
 
       console.log("Sending email to:", updateStudent.email);

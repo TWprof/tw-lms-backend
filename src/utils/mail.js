@@ -24,15 +24,14 @@ const sendEmail = async (option, type) => {
     }
 
     const emailOptions = {
-      from: "TECHWARE SERVICES<info@techware.ng>",
+      from: "TECHWARE SERVICES <info@techware.ng>",
       to: option.to,
       subject,
+      html: option.message,
     };
 
     if (!option.message) {
-      emailOptions.text = option.message;
-    } else {
-      emailOptions.html = option.message;
+      console.warn("Email message content is missing.");
     }
 
     const info = await transporter.sendMail(emailOptions);

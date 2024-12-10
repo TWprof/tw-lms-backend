@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import responses from "../utils/response.js";
 import crypto from "crypto";
 import constants from "../constants/index.js";
+import getTemplate from "../utils/getTemplates.js";
 import sendMail from "../utils/mail.js";
 
 export default class AdminClass {
@@ -21,17 +22,21 @@ export default class AdminClass {
 
     payload.registrationToken = crypto.randomBytes(20).toString("hex");
     payload.tokenExpiration = new Date(Date.now() + 3600000);
+
+    // saveadmin data
     await Admin.create(payload);
-    const message = `
-  <h1>Set password</h1>
-            <p> Follow this link to set your password and you can proceed to login:</p>
-            <a href="${process.env.ADMIN_HOST_FRONTEND}set-password?registrationToken=${payload.registrationToken}">Set your password here</a>
-  `;
+
+    // use email template
+    const registrationToken = `${process.env.ADMIN_HOST_FRONTEND}set-password?registrationToken=${payload.registrationToken}`;
+    const emailTemplate = getTemplate("setpassword.html", {
+      firstName: payload.firstName,
+      registrationToken,
+    });
 
     const emailPayload = {
       to: payload.email,
-      subject: "Complete Your Registration",
-      message: message,
+      subject: "SET PASSWORD",
+      message: emailTemplate,
     };
     // send email by calling sendMail function
     await sendMail(emailPayload, constants.setPassword);
