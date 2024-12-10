@@ -6,6 +6,8 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import bodyParser from "body-parser";
 import fileUpload from "express-fileupload";
+import path from "path";
+import { fileURLToPath } from "url";
 
 import seedAdmin from "./utils/seedAdmin.js";
 import connectDB from "./config/database.js";
@@ -21,6 +23,9 @@ import tutorRoutes from "./routes/tutor.js";
 const app = express();
 dotenv.config();
 const PORT = process.env.PORT || 3000;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 //Database
 connectDB();
@@ -45,6 +50,7 @@ app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(fileUpload({ useTempFiles: true, tempFileDir: "/tmp/" }));
+app.use("/assets", express.static(path.join(__dirname, "utils/public")));
 
 app.use("/api/v1", studentRoutes);
 app.use("/api/v1/admin", adminRoutes);
