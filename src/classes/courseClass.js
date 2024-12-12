@@ -321,4 +321,19 @@ export default class CourseClass {
       return responses.failureResponse("There was an error", 500);
     }
   }
+
+  async deleteCourse(courseId) {
+    try {
+      const findCourse = await Course.deleteOne({ _id: courseId });
+
+      if (findCourse.deletedCount === 0) {
+        return responses.failureResponse("This course does not exist", 404);
+      }
+
+      return responses.successResponse("Course deleted successfully", 200);
+    } catch (error) {
+      console.error("There was an error", error);
+      responses.failureResponse("Unable to delete this course", 500);
+    }
+  }
 }
