@@ -9,6 +9,7 @@ import fileUpload from "express-fileupload";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import socketConfig from "./config/socket.js";
 import seedAdmin from "./utils/seedAdmin.js";
 import connectDB from "./config/database.js";
 import studentRoutes from "./routes/students.js";
@@ -18,6 +19,7 @@ import cartRoutes from "./routes/cart.js";
 import webhookRoutes from "./routes/webhook.js";
 import uploadRoutes from "./routes/upload.js";
 import tutorRoutes from "./routes/tutor.js";
+import messagingRoutes from "./routes/messaging.js";
 
 //Environment variables configuration
 const app = express();
@@ -59,6 +61,7 @@ app.use("/api/v1/cart", cartRoutes);
 app.use("/api/v1", webhookRoutes);
 app.use("/api/v1/upload", uploadRoutes);
 app.use("/api/v1/tutor", tutorRoutes);
+app.use("/api/v1/", messagingRoutes);
 
 app.get("/", (_req, res) => {
   return res.send(
@@ -67,6 +70,9 @@ app.get("/", (_req, res) => {
 });
 
 const server = http.createServer(app);
+
+const io = socketConfig(server);
+
 server.listen(PORT, () => {
   console.log(`Server is running good at port ${PORT}`);
 });
