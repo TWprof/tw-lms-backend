@@ -63,6 +63,12 @@ const courseController = {
     const data = await new CourseClass().courseViews(courseId);
     res.status(data.statusCode).json(data);
   },
+
+  deleteCourse: async (req, res) => {
+    const { courseId } = req.params;
+    const data = await new CourseClass().deleteCourse(courseId);
+    res.status(data.statusCode).json(data);
+  },
 };
 
 export default courseController;
