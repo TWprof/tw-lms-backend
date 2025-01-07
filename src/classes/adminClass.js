@@ -108,4 +108,60 @@ export default class AdminClass {
       authToken,
     });
   }
+
+  async getTutorById(tutorId) {
+    try {
+      const tutor = await Admin.findById(tutorId);
+      if (!tutor) {
+        return responses.failureResponse("There is no tutor with this Id", 404);
+      }
+
+      return responses.successResponse("Tutor found", 200, tutor);
+    } catch (error) {
+      console.error("There was an error", error);
+      return responses.failureResponse("Unable to get this Tutor", 500);
+    }
+  }
+
+  async getAllTutors(query = {}) {
+    try {
+      const paginate = {
+        page: 1,
+        limit: 10,
+      };
+
+      if (query.page) {
+        paginate.page = Math.max(1, Number(query.page));
+        delete query.page;
+      }
+      if (query.limit) {
+        paginate.limit = Math.max(1, Number(query.limit));
+        delete query.limit;
+      }
+
+      // Filter to match only Tutors from Admin model
+      const match = { role: "1", ...query };
+      const tutors = await Admin.find(match)
+        .sort({ createdAt: -1 })
+        .skip((paginate.page - 1) * paginate.limit)
+        .limit(paginate.limit)
+        .lean();
+
+      // Count Total Tutors
+      const allTutors = await Admin.countDocuments(match);
+
+      return responses.successResponse("Tutors Found", 200, {
+        tutorCount: allTutors,
+        tutors,
+        page: paginate.page,
+        limit: paginate.limit,
+      });
+    } catch (error) {
+      console.error("Error in fetching Tutors", error);
+      return responses.failureResponse(
+        "There was an error fetching the Tutors",
+        500
+      );
+    }
+  }
 }
