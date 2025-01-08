@@ -70,4 +70,32 @@ export default class MessagingClass {
       return responses.failureResponse("Unable to send message", 500);
     }
   }
+
+  async getMessages(chatId, page = 1, limit = 10) {
+    try {
+      const skip = (page - 1) * limit;
+      const chat = await Chat.findById(chatId)
+        .select("messages")
+        .populate({
+          path: "messages",
+          options: { sort: { createdAt: -1 }, skip, limit },
+        });
+      if (!chat) {
+        return responses.faiilureMessage("There is no chat", 404);
+      }
+
+      const totalMessages = chat.messages.length;
+      const paginatedMessages = chat.messages
+        .slice(skip, skip + limit)
+        .reverse();
+
+      return responses.successResponse("Messages displayed", 200, {
+        totalMessages,
+        messages: paginatedMessages,
+      });
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      return responses.failureResponse("Unable to fetch messages", 500);
+    }
+  }
 }
