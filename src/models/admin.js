@@ -10,16 +10,34 @@ const adminSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    middleName: {
+      type: String,
+      required: false,
+    },
     email: {
       type: String,
       required: true,
-      // unique: true,
     },
     phone: {
       type: String,
       required: false,
     },
+    country: {
+      type: String,
+    },
+    state: {
+      type: String,
+    },
     password: {
+      type: String,
+    },
+    address: {
+      type: String,
+    },
+    postalCode: {
+      type: Number,
+    },
+    profilePicture: {
       type: String,
     },
     role: {
@@ -27,6 +45,9 @@ const adminSchema = new mongoose.Schema(
       required: true,
       enum: ["0", "1", "2"], // 0 for Admin, 1 for Tutor, 2 for Staff
       default: "2",
+    },
+    description: {
+      type: String,
     },
     registrationToken: {
       type: String,
