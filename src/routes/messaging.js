@@ -8,4 +8,6 @@ router.post("/send-messages", authenticate, messagingController.sendMessage);
 
 router.post("/chat", authenticate, messagingController.getOrCreateChat);
 
+router.get("/chat/:chatId", authenticate, messagingController.getMessages);
+
 export default router;
