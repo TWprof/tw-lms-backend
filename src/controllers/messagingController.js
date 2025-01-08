@@ -1,15 +1,10 @@
 import MessagingClass from "../classes/messagingClass.js";
 
 const messagingController = {
-  listTutors: async (req, res) => {
+  getOrCreateChat: async (req, res) => {
+    const { tutorId } = req.body;
     const studentId = req.user._id;
-    const data = await new MessagingClass().listTutorsForStudents(studentId);
-    res.status(data.statusCode).json(data);
-  },
-
-  listStudents: async (req, res) => {
-    const tutorId = req.user._id;
-    const data = await new MessagingClass().listStudentsForTutor(tutorId);
+    const data = await new MessagingClass().getOrCreateChat(studentId, tutorId);
     res.status(data.statusCode).json(data);
   },
 
@@ -38,10 +33,8 @@ const messagingController = {
     res.status(data.statusCode).json(data);
   },
 
-  getOrCreateChat: async (req, res) => {
-    const { tutorId } = req.body;
-    const studentId = req.user._id;
-    const data = await new MessagingClass().getOrCreateChat(studentId, tutorId);
+  getMessages: async (req, res) => {
+    const data = await new MessagingClass().getMessages(req.params.chatId);
     res.status(data.statusCode).json(data);
   },
 };

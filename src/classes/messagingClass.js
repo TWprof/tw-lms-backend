@@ -1,77 +1,29 @@
 import Messages from "../models/messaging.js";
 import Chat from "../models/chat.js";
-import PurchasedCourse from "../models/purchasedCourse.js";
 import responses from "../utils/response.js";
 
 export default class MessagingClass {
-  // Create a list of Tutors whose course a Student has purchased
-  async listTutorsForStudents(studentId) {
+  //Retrieving the chats betweeen student and tutor
+  async getOrCreateChat(studentId, tutorId) {
     try {
-      const tutors = await PurchasedCourse.find({ studentId })
-        .populate({
-          path: "courseId",
-          populate: {
-            path: "tutor",
-            model: "Admin",
-            select: "firstName lastName email",
-          },
-        })
-        .select("courseId");
+      // check for existing chats between the user and the tutor
+      let chat = await Chat.findOne({ student: studentId, tutor: tutorId });
+      if (!chat) {
+        // create a new chat
+        chat = new Chat({ student: studentId, tutor: tutorId });
+        await chat.save();
+      }
 
-      // Extract tutor details from the populated courses purchased by the student
-      const tutorList = [
-        ...new Map(
-          tutors.map((course) => [
-            course.courseId.tutor._id.toString(),
-            course.courseId.tutor,
-          ])
-        ).values(),
-      ];
-
-      return responses.successResponse(
-        "These are the list of tutors whose course you have purchased",
-        200,
-        tutorList
-      );
+      return responses.successResponse("Chat session retrieved", 200, chat);
     } catch (error) {
-      console.error("There was an error", error);
-      return responses.failureResponse("Unable to get the list of tutors", 500);
+      console.error("Error creating or retrieving chat:", error);
+      return responses.failureResponse(
+        "Unable to create or retrieve chat",
+        500
+      );
     }
   }
-
-  // Extract and filter out students who have bought the tutor's courses
-  async listStudentsForTutor(tutorId) {
-    try {
-      const students = await PurchasedCourse.find()
-        .populate({
-          path: "studentId",
-          model: "Student",
-          select: "firstName lastName email",
-        })
-        .populate({
-          path: "courseId",
-          match: { tutor: tutorId },
-          select: "title",
-        });
-
-      // Extract and filter out students who have bought the tutor's courses
-      const studentList = students.map((course) => ({
-        student: course.studentId,
-        course: course.courseId.title || "Unknown Course",
-      }));
-
-      return responses.successResponse(
-        "These are the students that have purchased your courses",
-        200,
-        studentList
-      );
-    } catch (error) {
-      console.error("Error retrieving students for tutor:", error);
-      return responses.failureResponse("Unable to retrieve the Students", 500);
-    }
-  }
-
-  // To start a conversation/begin a chat
+  // To send a message
   async sendMessage(payload) {
     try {
       const {
@@ -119,24 +71,31 @@ export default class MessagingClass {
     }
   }
 
-  //Retrieving the chats betweeen student and tutor
-  async getOrCreateChat(studentId, tutorId) {
+  async getMessages(chatId, page = 1, limit = 10) {
     try {
-      // check for existing chats between the user and the tutor
-      let chat = await Chat.findOne({ student: studentId, tutor: tutorId });
+      const skip = (page - 1) * limit;
+      const chat = await Chat.findById(chatId)
+        .select("messages")
+        .populate({
+          path: "messages",
+          options: { sort: { createdAt: -1 }, skip, limit },
+        });
       if (!chat) {
-        // create a new chat
-        chat = new Chat({ student: studentId, tutor: tutorId });
-        await chat.save();
+        return responses.faiilureMessage("There is no chat", 404);
       }
 
-      return responses.successResponse("Chat session retrieved", 200, chat);
+      const totalMessages = chat.messages.length;
+      const paginatedMessages = chat.messages
+        .slice(skip, skip + limit)
+        .reverse();
+
+      return responses.successResponse("Messages displayed", 200, {
+        totalMessages,
+        messages: paginatedMessages,
+      });
     } catch (error) {
-      console.error("Error creating or retrieving chat:", error);
-      return responses.failureResponse(
-        "Unable to create or retrieve chat",
-        500
-      );
+      console.error("Error fetching messages:", error);
+      return responses.failureResponse("Unable to fetch messages", 500);
     }
   }
 }
