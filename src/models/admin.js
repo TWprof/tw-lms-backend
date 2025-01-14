@@ -55,6 +55,10 @@ const adminSchema = new mongoose.Schema(
     tokenExpiration: {
       type: Date,
     },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
   },
   {
     timestamps: true,
