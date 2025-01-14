@@ -17,5 +17,10 @@ router.get(
   authenticate,
   tutorController.tutorCourseAnalytics
 );
+router.patch("/update-password", authenticate, tutorController.changePassword);
+
+router.put("/update-profile", authenticate, tutorController.updateProfile);
+
+router.patch("/delete", authenticate, tutorController.deleteAccount);
 
 export default router;

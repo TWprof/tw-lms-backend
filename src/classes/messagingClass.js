@@ -81,7 +81,7 @@ export default class MessagingClass {
           options: { sort: { createdAt: -1 }, skip, limit },
         });
       if (!chat) {
-        return responses.faiilureMessage("There is no chat", 404);
+        return responses.failureResponse("There is no chat with this Id", 404);
       }
 
       const totalMessages = chat.messages.length;
