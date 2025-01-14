@@ -1,8 +1,10 @@
+import Admin from "../models/admin.js";
 import Course from "../models/courses.js";
 import Payment from "../models/payment.js";
 import PurchasedCourse from "../models/purchasedCourse.js";
 import Review from "../models/review.js";
 import responses from "../utils/response.js";
+import bcrypt from "bcrypt";
 
 export default class TutorClass {
   async tutorStats(tutorId, timePeriod = "month") {
@@ -668,6 +670,114 @@ export default class TutorClass {
         "Unable to retrieve Course analytics",
         500
       );
+    }
+  }
+
+  async changePassword(tutorId, payload) {
+    try {
+      const { oldPassword, newPassword } = payload;
+
+      if (!oldPassword || !newPassword) {
+        return responses.failureResponse(
+          "Old and new passwords are required",
+          400
+        );
+      }
+
+      const tutor = await Admin.findById(tutorId);
+
+      if (!tutor) {
+        return responses.failureResponse(
+          "Invalid tutor token. There is no tutor with this Id",
+          400
+        );
+      }
+
+      if (!tutor.password) {
+        return responses.failureResponse(
+          "Tutor password is not set. Please contact support.",
+          400
+        );
+      }
+
+      // Check if the old password is correct
+      const isMatch = await bcrypt.compare(oldPassword, tutor.password);
+
+      if (!isMatch) {
+        console.log("Password does not match");
+        return responses.failureResponse("This password is incorrect", 400);
+      }
+
+      // Hash and set the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      const updatedTutor = await Admin.findByIdAndUpdate(
+        tutorId,
+        { password: hashedPassword },
+        { new: true }
+      );
+
+      return responses.successResponse(
+        "Tutor password updated successfully",
+        200,
+        updatedTutor
+      );
+    } catch (error) {
+      console.error("Unable to update the password", error);
+      return responses.failureResponse(
+        "There was an error updating the Tutor password",
+        500
+      );
+    }
+  }
+
+  async updateProfile(tutorId, payload) {
+    try {
+      const tutor = await Admin.findById(tutorId);
+      if (!tutor) {
+        return responses.failureResponse(
+          "Invalid tutor token. There is no tutor with this Id",
+          400
+        );
+      }
+
+      const updatedTutor = await Admin.findByIdAndUpdate(tutorId, payload, {
+        new: true,
+      });
+
+      return responses.successResponse(
+        "Tutor Information updated successfully",
+        200,
+        updatedTutor
+      );
+    } catch (error) {
+      console.error("There was an error updating your profile", error);
+      return responses.failureResponse("Unable to update Tutor's profile", 500);
+    }
+  }
+
+  async deleteAccount(tutorId) {
+    try {
+      const tutor = await Admin.findOneAndUpdate(
+        { _id: tutorId, role: "1", isActive: true }, // only logged in and active tutors can deactivate
+        { isActive: false }, // using a soft delete to mark as inactive
+        { new: true }
+      );
+
+      if (!tutor) {
+        return responses.failureResponse(
+          "Tutor not found or already deleted",
+          404
+        );
+      }
+      return responses.successResponse(
+        "Account deleted successfully",
+        200,
+        tutor
+      );
+    } catch (error) {
+      console.error("There was an error trying to delete your account", error);
+      return responses.failureResponse("Unable to delete this account", 500);
     }
   }
 }

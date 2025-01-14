@@ -51,6 +51,24 @@ const tutorController = {
     const data = await new TutorClass().tutorCourseAnalytics(tutorId);
     res.status(data.statusCode).json(data);
   },
+
+  changePassword: async (req, res) => {
+    const tutorId = req.user._id;
+    const data = await new TutorClass().changePassword(tutorId, req.body);
+    res.status(data.statusCode).json(data);
+  },
+
+  updateProfile: async (req, res) => {
+    const tutorId = req.user._id;
+    const data = await new TutorClass().updateProfile(tutorId, req.body);
+    res.status(data.statusCode).json(data);
+  },
+
+  deleteAccount: async (req, res) => {
+    const tutorId = req.user._id;
+    const data = await new TutorClass().deleteAccount(tutorId);
+    res.status(data.statusCode).json(data);
+  },
 };
 
 export default tutorController;
