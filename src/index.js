@@ -36,7 +36,7 @@ seedAdmin();
 const corsOptions = {
   origin: true,
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
   allowHeaders: [
     "Content-Type",
     "Authorization",
