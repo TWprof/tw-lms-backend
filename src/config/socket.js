@@ -10,7 +10,7 @@ const socketConfig = (server) => {
     },
   });
 
-  io.on("connectiion", (socket) => {
+  io.on("connection", (socket) => {
     console.log(`Connection successfully established: ${socket.id}`);
 
     // Join a chat room

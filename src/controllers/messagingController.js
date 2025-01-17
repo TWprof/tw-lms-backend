@@ -37,6 +37,12 @@ const messagingController = {
     const data = await new MessagingClass().getMessages(req.params.chatId);
     res.status(data.statusCode).json(data);
   },
+
+  getTutorChatList: async (req, res) => {
+    const tutorId = req.user._id;
+    const data = await new MessagingClass().getTutorChatList(tutorId);
+    res.status(data.statusCode).json(data);
+  },
 };
 
 export default messagingController;
