@@ -98,4 +98,39 @@ export default class MessagingClass {
       return responses.failureResponse("Unable to fetch messages", 500);
     }
   }
+
+  async getTutorChatList(tutorId) {
+    try {
+      const chats = await Chat.find({ tutor: tutorId })
+        .populate({ path: "student", select: "firstName lastName" })
+        .populate({
+          path: "messages",
+          select:
+            "senderType senderId receiverType receiverId message createdAt",
+          options: { sort: { createdAt: -1 } },
+        });
+
+      if (!chats || chats.length === 0) {
+        return responses.failureResponse(
+          "There are no chats found for this tutor",
+          404
+        );
+      }
+
+      const chatList = chats.map((chat) => ({
+        chatId: chat._id,
+        student: chat.student,
+        message: chat.messages,
+      }));
+
+      return responses.successResponse(
+        "Chats retrieved successfully",
+        200,
+        chatList
+      );
+    } catch (error) {
+      console.error("There was an error", error);
+      return responses.failureResponse("Unable to fetch chat list", 500);
+    }
+  }
 }

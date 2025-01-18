@@ -10,4 +10,6 @@ router.post("/chat", authenticate, messagingController.getOrCreateChat);
 
 router.get("/chat/:chatId", authenticate, messagingController.getMessages);
 
+router.get("/tutor/chats", authenticate, messagingController.getTutorChatList);
+
 export default router;
