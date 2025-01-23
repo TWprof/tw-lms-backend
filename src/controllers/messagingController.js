@@ -43,6 +43,12 @@ const messagingController = {
     const data = await new MessagingClass().getTutorChatList(tutorId);
     res.status(data.statusCode).json(data);
   },
+
+  getStudentChatList: async (req, res) => {
+    const studentId = req.user._id;
+    const data = await new MessagingClass().getStudentChatList(studentId);
+    res.status(data.statusCode).json(data);
+  },
 };
 
 export default messagingController;
