@@ -28,6 +28,7 @@ export default class StudentClass {
 
     // Use email template
     const verificationLink = `${process.env.STUDENT_FRONTEND_HOST}/verified-email?verificationToken=${payload.verificationToken}`;
+    // const verificationLink = `${process.env.HOST}/verified-email?verificationToken=${payload.verificationToken}`;
     const emailTemplate = getTemplate("verifyemail.html", {
       firstName: payload.firstName,
       verificationLink,

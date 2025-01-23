@@ -4,6 +4,9 @@ import Payment from "../models/payment.js";
 import PurchasedCourse from "../models/purchasedCourse.js";
 import Course from "../models/courses.js";
 import Cart from "../models/cart.js";
+import sendEmail from "../utils/mail.js";
+import constants from "../constants/index.js";
+import getTemplate from "../utils/getTemplates.js";
 
 const webhookServices = {
   paystackWebhook: async function (payload) {
@@ -80,6 +83,26 @@ const webhookServices = {
                 { $inc: { purchaseCount: 1 } },
                 { new: true }
               );
+
+              // Notify Tutor about purchase
+              const tutorEmail = cartItem.courseId.tutorEmail;
+              const courseTitle = cartItem.courseId.title;
+              const tutorEmailTemplate = getTemplate(
+                "purchasenotification.html",
+                {
+                  studentEmail,
+                  courseTitle,
+                }
+              );
+
+              const emailPayload = {
+                to: tutorEmail,
+                subject: "Course Purchase Notification",
+                message: tutorEmailTemplate,
+              };
+
+              // Send email to Tutor
+              await sendEmail(emailPayload, constants.notifyPurchase);
 
               // Update cart status to 'purchased'
               await Cart.findByIdAndUpdate(cartId, { status: "success" });
