@@ -34,7 +34,10 @@ const messagingController = {
   },
 
   getMessages: async (req, res) => {
-    const data = await new MessagingClass().getMessages(req.params.chatId);
+    const data = await new MessagingClass().getMessages(
+      req.params.chatId,
+      req.query
+    );
     res.status(data.statusCode).json(data);
   },
 

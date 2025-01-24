@@ -71,27 +71,45 @@ export default class MessagingClass {
     }
   }
 
-  async getMessages(chatId, page = 1, limit = 10) {
+  async getMessages(chatId, query = {}) {
     try {
-      const skip = (page - 1) * limit;
-      const chat = await Chat.findById(chatId)
-        .select("messages")
-        .populate({
-          path: "messages",
-          options: { sort: { createdAt: -1 }, skip, limit },
-        });
-      if (!chat) {
-        return responses.failureResponse("There is no chat with this Id", 404);
+      const paginate = {
+        page: 1,
+        limit: 10,
+      };
+
+      // Handle pagination parameters
+      if (query.page) {
+        paginate.page = Number(query.page);
+        delete query.page;
       }
 
-      const totalMessages = chat.messages.length;
-      const paginatedMessages = chat.messages
-        .slice(skip, skip + limit)
-        .reverse();
+      if (query.limit) {
+        paginate.limit = Number(query.limit);
+        delete query.limit;
+      }
 
-      return responses.successResponse("Messages displayed", 200, {
+      // Ensure the chat exists
+      const chat = await Chat.findById(chatId).select("messages");
+      if (!chat) {
+        return responses.failureResponse("There is no chat with this ID", 404);
+      }
+
+      // Query messages using pagination
+      const messages = await Messages.find({ _id: { $in: chat.messages } })
+        .sort({ createdAt: -1 }) // Sort by newest first
+        .skip((paginate.page - 1) * paginate.limit)
+        .limit(paginate.limit)
+        .exec();
+
+      // Get total count of messages
+      const totalMessages = chat.messages.length;
+
+      return responses.successResponse("Messages retrieved successfully", 200, {
         totalMessages,
-        messages: paginatedMessages,
+        messages,
+        page: paginate.page,
+        limit: paginate.limit,
       });
     } catch (error) {
       console.error("Error fetching messages:", error);
