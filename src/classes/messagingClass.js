@@ -75,7 +75,7 @@ export default class MessagingClass {
     try {
       const paginate = {
         page: 1,
-        limit: 10,
+        limit: 25,
       };
 
       // Handle pagination parameters
@@ -97,7 +97,7 @@ export default class MessagingClass {
 
       // Query messages using pagination
       const messages = await Messages.find({ _id: { $in: chat.messages } })
-        .sort({ createdAt: -1 }) // Sort by newest first
+        .sort({ createdAt: 1 })
         .skip((paginate.page - 1) * paginate.limit)
         .limit(paginate.limit)
         .exec();
