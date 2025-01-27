@@ -95,9 +95,9 @@ export default class MessagingClass {
         return responses.failureResponse("There is no chat with this ID", 404);
       }
 
-      // Query messages using pagination
+      // Query messages in descending order and paginate
       const messages = await Messages.find({ _id: { $in: chat.messages } })
-        .sort({ createdAt: 1 })
+        .sort({ createdAt: -1 })
         .skip((paginate.page - 1) * paginate.limit)
         .limit(paginate.limit)
         .exec();
