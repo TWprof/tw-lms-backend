@@ -71,27 +71,45 @@ export default class MessagingClass {
     }
   }
 
-  async getMessages(chatId, page = 1, limit = 10) {
+  async getMessages(chatId, query = {}) {
     try {
-      const skip = (page - 1) * limit;
-      const chat = await Chat.findById(chatId)
-        .select("messages")
-        .populate({
-          path: "messages",
-          options: { sort: { createdAt: -1 }, skip, limit },
-        });
-      if (!chat) {
-        return responses.failureResponse("There is no chat with this Id", 404);
+      const paginate = {
+        page: 1,
+        limit: 25,
+      };
+
+      // Handle pagination parameters
+      if (query.page) {
+        paginate.page = Number(query.page);
+        delete query.page;
       }
 
-      const totalMessages = chat.messages.length;
-      const paginatedMessages = chat.messages
-        .slice(skip, skip + limit)
-        .reverse();
+      if (query.limit) {
+        paginate.limit = Number(query.limit);
+        delete query.limit;
+      }
 
-      return responses.successResponse("Messages displayed", 200, {
+      // Ensure the chat exists
+      const chat = await Chat.findById(chatId).select("messages");
+      if (!chat) {
+        return responses.failureResponse("There is no chat with this ID", 404);
+      }
+
+      // Query messages in descending order and paginate
+      const messages = await Messages.find({ _id: { $in: chat.messages } })
+        .sort({ createdAt: -1 })
+        .skip((paginate.page - 1) * paginate.limit)
+        .limit(paginate.limit)
+        .exec();
+
+      // Get total count of messages
+      const totalMessages = chat.messages.length;
+
+      return responses.successResponse("Messages retrieved successfully", 200, {
         totalMessages,
-        messages: paginatedMessages,
+        messages,
+        page: paginate.page,
+        limit: paginate.limit,
       });
     } catch (error) {
       console.error("Error fetching messages:", error);
@@ -131,6 +149,47 @@ export default class MessagingClass {
     } catch (error) {
       console.error("There was an error", error);
       return responses.failureResponse("Unable to fetch chat list", 500);
+    }
+  }
+
+  async getStudentChatList(studentId) {
+    try {
+      // find the chats for the student
+      const chats = await Chat.find({ student: studentId })
+        .populate({
+          path: "tutor",
+          model: "Admin",
+          select: "firstName lastName",
+        })
+        .populate({
+          path: "messages",
+          select:
+            "senderType senderId receiverType receiverId message createdAt",
+          options: { sort: { createdAt: -1 } },
+        });
+
+      // Check if no chats are found
+      if (!chats || chats.length === 0) {
+        return responses.failureResponse(
+          "There are no chats found for this student",
+          404
+        );
+      }
+
+      // Process chat list
+      const chatList = chats.map((chat) => ({
+        chatId: chat._id,
+        tutor: chat.tutor,
+        messages: chat.messages,
+      }));
+
+      return responses.successResponse(
+        "Chats retrieved successfully",
+        200,
+        chatList
+      );
+    } catch (error) {
+      console.error("There was an error", error);
     }
   }
 }

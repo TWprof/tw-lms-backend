@@ -12,4 +12,10 @@ router.get("/chat/:chatId", authenticate, messagingController.getMessages);
 
 router.get("/tutor/chats", authenticate, messagingController.getTutorChatList);
 
+router.get(
+  "/student/chats",
+  authenticate,
+  messagingController.getStudentChatList
+);
+
 export default router;
