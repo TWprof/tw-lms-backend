@@ -34,13 +34,22 @@ const messagingController = {
   },
 
   getMessages: async (req, res) => {
-    const data = await new MessagingClass().getMessages(req.params.chatId);
+    const data = await new MessagingClass().getMessages(
+      req.params.chatId,
+      req.query
+    );
     res.status(data.statusCode).json(data);
   },
 
   getTutorChatList: async (req, res) => {
     const tutorId = req.user._id;
     const data = await new MessagingClass().getTutorChatList(tutorId);
+    res.status(data.statusCode).json(data);
+  },
+
+  getStudentChatList: async (req, res) => {
+    const studentId = req.user._id;
+    const data = await new MessagingClass().getStudentChatList(studentId);
     res.status(data.statusCode).json(data);
   },
 };
