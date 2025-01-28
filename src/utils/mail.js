@@ -21,6 +21,8 @@ const sendEmail = async (option, type) => {
       subject = option.subject;
     } else if (constants.setPassword === type) {
       subject = option.subject;
+    } else if (constants.notifyPurchase === type) {
+      subject = option.subject;
     }
 
     const emailOptions = {
