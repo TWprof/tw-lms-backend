@@ -17,9 +17,10 @@ export default class CourseClass {
         );
       }
 
-      // display the tutor name
+      // display the tutor name and email
       const tutorName = `${tutor.firstName} ${tutor.lastName}`;
       payload.tutorName = tutorName;
+      payload.tutorEmail = tutor.email;
 
       // If no isPublished status is sent, default to false (unpublished)
       if (payload.isPublished === undefined) {
