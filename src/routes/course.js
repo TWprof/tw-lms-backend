@@ -1,5 +1,6 @@
 import { Router } from "express";
 import courseController from "../controllers/courseController.js";
+import progressController from "../controllers/progressController.js";
 import authenticate from "../middleware/auth.js";
 
 const router = Router();
@@ -31,4 +32,9 @@ router.delete("/:courseId/delete", authenticate, courseController.deleteCourse);
 
 router.get("/:courseId/reviews", courseController.fetchReviews);
 
+// Routes to display course progress
+router.post("/:courseId/watch", progressController.updateProgress);
+
+// Get continue watching
+router.get("/contine-watching", progressController.continueWatching);
 export default router;
