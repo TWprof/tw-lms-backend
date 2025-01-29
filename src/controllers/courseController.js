@@ -40,12 +40,12 @@ const courseController = {
   // Rate Course Controller
   rateCourse: async (req, res) => {
     const { courseId } = req.params;
-    const { newRating, reviewtext } = req.body;
+    const { newRating, reviewText } = req.body;
     const studentId = req.user.id;
     const data = await new CourseClass().rateCourse({
       courseId,
       newRating,
-      reviewtext,
+      reviewText,
       studentId,
     });
     res.status(data.statusCode).json(data);
@@ -67,6 +67,12 @@ const courseController = {
   deleteCourse: async (req, res) => {
     const { courseId } = req.params;
     const data = await new CourseClass().deleteCourse(courseId);
+    res.status(data.statusCode).json(data);
+  },
+
+  fetchReviews: async (req, res) => {
+    const { courseId } = req.params;
+    const data = await new CourseClass().fetchReviewsPerCourse(courseId);
     res.status(data.statusCode).json(data);
   },
 };

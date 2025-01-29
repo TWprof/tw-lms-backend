@@ -29,4 +29,6 @@ router.get("/:courseId/view", authenticate, courseController.courseViews);
 // route to delete a course
 router.delete("/:courseId/delete", authenticate, courseController.deleteCourse);
 
+router.get("/:courseId/reviews", courseController.fetchReviews);
+
 export default router;

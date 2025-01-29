@@ -222,10 +222,9 @@ export default class CourseClass {
       // create the Review
       await Review.findOneAndUpdate(
         { courseId, studentId },
-        { rating: newRating, reviewText },
-        { upsert: true }
+        { $set: { rating: newRating, reviewText } },
+        { upsert: true, new: true }
       );
-
       // Calculate the new average rating
       const averageRating = await Review.aggregate([
         { $match: { courseId: course._id } },
@@ -335,6 +334,53 @@ export default class CourseClass {
     } catch (error) {
       console.error("There was an error", error);
       responses.failureResponse("Unable to delete this course", 500);
+    }
+  }
+
+  async fetchReviewsPerCourse(courseId) {
+    try {
+      const course = await Course.findById(courseId);
+      if (!course) {
+        return responses.failureResponse("Course not found", 404);
+      }
+
+      // Fetch reviews and populate student name
+      const reviews = await Review.find({ courseId })
+        .populate("studentId", "firstName lastName")
+        .select("reviewText rating createdAt updatedAt");
+
+      // If no reviews exist, return a meaningful response
+      if (reviews.length === 0) {
+        return responses.successResponse(
+          `There are no reviews for ${course.title}`,
+          200,
+          {
+            averageRating: 0,
+            totalReviews: 0,
+            reviews: [],
+          }
+        );
+      }
+      // Calculate the average rating
+      const totalRatings = reviews.reduce(
+        (sum, review) => sum + review.rating,
+        0
+      );
+      const averageRating = parseFloat(
+        (totalRatings / reviews.length).toFixed(2)
+      );
+
+      return responses.successResponse(`Reviews for ${course.title}`, 200, {
+        averageRating,
+        totalReviews: reviews.length,
+        reviews,
+      });
+    } catch (error) {
+      console.error("There was an error", error);
+      return responses.failureResponse(
+        "Unable to fetch Course ratings and reviews",
+        500
+      );
     }
   }
 }
