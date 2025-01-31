@@ -2,7 +2,6 @@ import Course from "../models/courses.js";
 import Admin from "../models/admin.js";
 import responses from "../utils/response.js";
 import Review from "../models/review.js";
-import PurchasedCourse from "../models/purchasedCourse.js";
 
 export default class CourseClass {
   // Create course

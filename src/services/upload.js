@@ -33,6 +33,7 @@ const uploadService = {
     return responses.successResponse("upload successful", 200, {
       url: result.url,
       filename: file.name,
+      duration: result.duration,
     });
   },
 };

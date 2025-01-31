@@ -87,7 +87,7 @@ const courseSchema = new mongoose.Schema(
 
     tutorEmail: {
       type: String,
-      required: false,
+      required: true,
     },
 
     rating: {
