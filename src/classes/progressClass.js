@@ -1,4 +1,5 @@
 import PurchasedCourse from "../models/purchasedCourse.js";
+import Course from "../models/courses.js";
 import responses from "../utils/response.js";
 
 export default class ProgressClass {
@@ -40,6 +41,30 @@ export default class ProgressClass {
         );
       }
 
+      // Fetch the course details to get video duration
+      const courseDetails = await Course.findById(courseId).select("lectures");
+      if (!courseDetails) {
+        return responses.failureResponse("Course not found", 404);
+      }
+
+      // Find the video duration
+      const lecture = courseDetails.lectures.find(
+        (lecture) => lecture._id.toString() === lectureId.toString()
+      );
+      if (!lecture) {
+        return responses.failureResponse("Lecture not found", 404);
+      }
+
+      const video = lecture.videoURLs.find(
+        (video) => video._id.toString() === videoId.toString()
+      );
+      if (!video) {
+        return responses.failureResponse("Video not found", 404);
+      }
+
+      // Assuming video.duration is stored in seconds
+      const totalDuration = video.duration || 0; // Replace with actual field name
+
       // Update video progress
       const videoProgress = course.progress.find(
         (progress) =>
@@ -65,7 +90,7 @@ export default class ProgressClass {
       );
 
       if (lectureProgress) {
-        // Calculate percentage completed (e.g., based on total video duration)
+        // Calculate percentage completed
         lectureProgress.percentageCompleted = Math.min(
           100,
           (timestamp / totalDuration) * 100
