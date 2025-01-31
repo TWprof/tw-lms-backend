@@ -61,6 +61,10 @@ const courseSchema = new mongoose.Schema(
               type: String,
               required: true,
             },
+            duration: {
+              type: Number, // in seconds
+              required: true,
+            },
           },
         ],
         lectureNumber: {
