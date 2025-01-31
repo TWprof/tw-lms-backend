@@ -12,6 +12,13 @@ router.get("/", courseController.getAllCourses);
 // Route to search a course from the available courses
 router.get("/search", courseController.findCourse);
 
+// Get continue watching
+router.get(
+  "/continue-watching",
+  authenticate,
+  progressController.continueWatching
+);
+
 // Route to update and publish a course
 router.put("/:courseId/publish", courseController.updateAndPublishCourse);
 
@@ -33,8 +40,10 @@ router.delete("/:courseId/delete", authenticate, courseController.deleteCourse);
 router.get("/:courseId/reviews", courseController.fetchReviews);
 
 // Routes to display course progress
-router.post("/:courseId/watch", progressController.updateProgress);
+router.post(
+  "/:courseId/watch",
+  authenticate,
+  progressController.updateProgress
+);
 
-// Get continue watching
-router.get("/contine-watching", progressController.continueWatching);
 export default router;
