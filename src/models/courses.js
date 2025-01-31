@@ -63,7 +63,7 @@ const courseSchema = new mongoose.Schema(
             },
             duration: {
               type: Number, // in seconds
-              required: true,
+              required: false,
             },
           },
         ],
