@@ -9,7 +9,18 @@ const cloudinaryService = {
         use_filename: true,
       });
 
-      return { url: result.secure_url, filename: path.basename(filepath) };
+      let duration = null;
+
+      // if the uploaded file is a video
+      if (result.resource_type === "video") {
+        duration = Math.round(result.duration);
+      }
+
+      return {
+        url: result.secure_url,
+        filename: path.basename(filepath),
+        duration,
+      };
     } catch (error) {
       console.error(error);
       throw new Error("Failed to upload to cloudinary");

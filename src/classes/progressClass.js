@@ -63,7 +63,7 @@ export default class ProgressClass {
       }
 
       // Assuming video.duration is stored in seconds
-      const totalDuration = video.duration || 0; // Replace with actual field name
+      const totalDuration = video.duration || 0;
 
       // Update video progress
       const videoProgress = course.progress.find(
@@ -74,13 +74,16 @@ export default class ProgressClass {
 
       if (videoProgress) {
         videoProgress.timestamp = timestamp;
+        if (timestamp >= totalDuration) {
+          videoProgress.completed = true;
+        }
         videoProgress.completed = isCompleted || videoProgress.completed;
       } else {
         course.progress.push({
           lectureId,
           videoId,
           timestamp,
-          completed: isCompleted || false,
+          completed: timestamp >= totalDuration,
         });
       }
 
@@ -102,6 +105,17 @@ export default class ProgressClass {
         });
       }
 
+      // Mark courses as completed: isCompleted = 1
+      const allVideos = courseDetails.lectures.flatMap((lecture) =>
+        lecture.videoURLs.map((video) => video._id.toString())
+      );
+      const completedVideos = course.progress
+        .filter((p) => p.completed)
+        .map((p) => p.videoId.toString());
+
+      if (allVideos.every((videoId) => completedVideos.includes(videoId))) {
+        course.isCompleted = 1;
+      }
       await course.save();
 
       return responses.successResponse(
@@ -117,8 +131,11 @@ export default class ProgressClass {
 
   async continueWatching(studentId) {
     try {
-      // Fetch all purchased courses for the student
-      const coursesPurchased = await PurchasedCourse.find({ studentId })
+      // Fetch all purchased courses for the student that are NOT completed
+      const coursesPurchased = await PurchasedCourse.find({
+        studentId,
+        isCompleted: { $ne: 1 },
+      })
         .populate("courseId", "title thumbnailURL")
         .populate({
           path: "progress.lectureId",
@@ -130,7 +147,7 @@ export default class ProgressClass {
         });
 
       if (coursesPurchased.length === 0) {
-        return responses.failureResponse("No progress found", 404);
+        return responses.failureResponse("No ongoing progress found", 404);
       }
 
       // Format the response
@@ -138,14 +155,16 @@ export default class ProgressClass {
         courseId: purchasedCourse.courseId._id,
         courseTitle: purchasedCourse.courseId.title,
         thumbnailURL: purchasedCourse.courseId.thumbnailURL,
-        progress: purchasedCourse.progress.map((progress) => ({
-          lectureId: progress.lectureId._id,
-          lectureTitle: progress.lectureId.title,
-          videoId: progress.videoId._id,
-          videoTitle: progress.videoId.filename,
-          timestamp: progress.timestamp,
-          completed: progress.completed,
-        })),
+        progress: purchasedCourse.progress
+          .filter((progress) => !progress.completed)
+          .map((progress) => ({
+            lectureId: progress.lectureId._id,
+            lectureTitle: progress.lectureId.title,
+            videoId: progress.videoId._id,
+            videoTitle: progress.videoId.filename,
+            timestamp: progress.timestamp,
+            completed: progress.completed,
+          })),
         lectureProgress: purchasedCourse.lectureProgress.map((progress) => ({
           lectureId: progress.lectureId,
           percentageCompleted: progress.percentageCompleted,
