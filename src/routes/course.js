@@ -46,6 +46,7 @@ router.post(
   progressController.updateProgress
 );
 
+// Routes to handle comments
 router.post(
   "/:courseId/comments",
   authenticate,
@@ -55,8 +56,9 @@ router.post(
 router.get("/:courseId/comments", courseController.getComments);
 
 router.delete(
-  "/:commentId/comment",
+  "/comments/:commentId",
   authenticate,
   courseController.deleteComment
 );
+
 export default router;

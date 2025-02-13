@@ -409,12 +409,13 @@ export default class CourseClass {
 
   async getComments(courseId) {
     try {
-      const comments = await Comment.find({ courseId }).populate(
-        "studentId",
-        "firstName lastName"
-      );
+      const comments = await Comment.find({ courseId }).populate({
+        path: "studentId",
+        select: "firstName lastName",
+        match: { _id: { $exists: true } },
+      });
 
-      if (!comments) {
+      if (!comments || comments.length === 0) {
         return responses.failureResponse(
           "There are no comments on this course",
           404
@@ -428,7 +429,7 @@ export default class CourseClass {
       );
     } catch (error) {
       console.error("There was an error", error);
-      responses.failureResponse("Failed to fetch comments", 500);
+      return responses.failureResponse("Failed to fetch comments", 500);
     }
   }
 
@@ -446,7 +447,7 @@ export default class CourseClass {
         );
       }
 
-      await Comment.deleteOne(commentId);
+      await Comment.findByIdAndDelete(commentId);
       return responses.successResponse("Comment deleted successfully", 200);
     } catch (error) {
       console.error("There was an error deleting the comment", error);
