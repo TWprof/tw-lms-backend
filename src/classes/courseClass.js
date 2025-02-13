@@ -3,6 +3,7 @@ import Admin from "../models/admin.js";
 import responses from "../utils/response.js";
 import Review from "../models/review.js";
 import Comment from "../models/comments.js";
+import PurchasedCourse from "../models/purchasedCourse.js";
 
 export default class CourseClass {
   // Create course
@@ -388,6 +389,19 @@ export default class CourseClass {
     try {
       const { courseId, studentId, text } = payload;
 
+      // Check if the student has purchased the course
+      const hasPurchased = await PurchasedCourse.findOne({
+        courseId,
+        studentId,
+      });
+
+      if (!hasPurchased) {
+        return responses.failureResponse(
+          "You must purchase the course to leave a comment",
+          403
+        );
+      }
+
       const comment = new Comment({
         courseId,
         studentId,
@@ -439,8 +453,9 @@ export default class CourseClass {
       if (!comment) {
         return responses.failureResponse("Comment not found", 404);
       }
+
       // Only the student who left a comment can delete a comment
-      if (comment.studentId.toString() !== studentId) {
+      if (comment.studentId.toString() !== studentId.toString()) {
         return responses.failureResponse(
           "You are unauthorized to delete this comment",
           403
