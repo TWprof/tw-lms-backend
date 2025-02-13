@@ -2,6 +2,7 @@ import Course from "../models/courses.js";
 import Admin from "../models/admin.js";
 import responses from "../utils/response.js";
 import Review from "../models/review.js";
+import Comment from "../models/comments.js";
 
 export default class CourseClass {
   // Create course
@@ -380,6 +381,76 @@ export default class CourseClass {
         "Unable to fetch Course ratings and reviews",
         500
       );
+    }
+  }
+
+  async leaveComments(payload) {
+    try {
+      const { courseId, studentId, text } = payload;
+
+      const comment = new Comment({
+        courseId,
+        studentId,
+        text,
+      });
+
+      await comment.save();
+
+      return responses.successResponse(
+        "Comment added successfully",
+        201,
+        comment
+      );
+    } catch (error) {
+      console.error("There was an error adding your comment", error);
+      return responses.failureResponse("Failed to add comment", 500);
+    }
+  }
+
+  async getComments(courseId) {
+    try {
+      const comments = await Comment.find({ courseId }).populate(
+        "studentId",
+        "firstName lastName"
+      );
+
+      if (!comments) {
+        return responses.failureResponse(
+          "There are no comments on this course",
+          404
+        );
+      }
+
+      return responses.successResponse(
+        "Comments fetched successfully",
+        200,
+        comments
+      );
+    } catch (error) {
+      console.error("There was an error", error);
+      responses.failureResponse("Failed to fetch comments", 500);
+    }
+  }
+
+  async deleteComment(commentId, studentId) {
+    try {
+      const comment = await Comment.findById(commentId);
+      if (!comment) {
+        return responses.failureResponse("Comment not found", 404);
+      }
+      // Only the student who left a comment can delete a comment
+      if (comment.studentId.toString() !== studentId) {
+        return responses.failureResponse(
+          "You are unauthorized to delete this comment",
+          403
+        );
+      }
+
+      await Comment.deleteOne(commentId);
+      return responses.successResponse("Comment deleted successfully", 200);
+    } catch (error) {
+      console.error("There was an error deleting the comment", error);
+      return responses.failureResponse("Failed to delete comment", 500);
     }
   }
 }
