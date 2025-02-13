@@ -79,7 +79,7 @@ const courseController = {
   leaveComments: async (req, res) => {
     const { courseId } = req.params;
     const studentId = req.user._id;
-    const text = req.body;
+    const { text } = req.body;
 
     const payload = { courseId, studentId, text };
     const data = await new CourseClass().leaveComments(payload);
