@@ -15,15 +15,16 @@ export default class ProgressClass {
       } = payload;
 
       // Validate input
-      if (
-        !studentId ||
-        !courseId ||
-        !lectureId ||
-        !videoId ||
-        timestamp === undefined
-      ) {
+      const missingFields = [];
+      if (!studentId) missingFields.push("studentId");
+      if (!courseId) missingFields.push("courseId");
+      if (!lectureId) missingFields.push("lectureId");
+      if (!videoId) missingFields.push("videoId");
+      if (timestamp === undefined) missingFields.push("timestamp");
+
+      if (missingFields.length > 0) {
         return responses.failureResponse(
-          "Something is missing from payload",
+          `Missing required fields: ${missingFields.join(", ")}`,
           400
         );
       }
