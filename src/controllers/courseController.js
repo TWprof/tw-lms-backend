@@ -75,6 +75,29 @@ const courseController = {
     const data = await new CourseClass().fetchReviewsPerCourse(courseId);
     res.status(data.statusCode).json(data);
   },
+
+  leaveComments: async (req, res) => {
+    const { courseId } = req.params;
+    const studentId = req.user._id;
+    const text = req.body;
+
+    const payload = { courseId, studentId, text };
+    const data = await new CourseClass().leaveComments(payload);
+    res.status(data.statusCode).json(data);
+  },
+
+  getComments: async (req, res) => {
+    const { courseId } = req.params;
+    const data = await new CourseClass().getComments(courseId);
+    res.status(data.statusCode).json(data);
+  },
+
+  deleteComment: async (req, res) => {
+    const { commentId } = req.params;
+    const studentId = req.user._id;
+    const data = await new CourseClass().deleteComment(commentId, studentId);
+    res.status(data.statusCode).json(data);
+  },
 };
 
 export default courseController;
