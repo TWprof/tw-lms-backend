@@ -86,6 +86,21 @@ const studentController = {
     const data = await new StudentClass().updatePassword(studentId, req.body);
     res.status(data.statusCode).json(data);
   },
+
+  // Delete student account
+  deleteAccount: async (req, res) => {
+    const studentId = req.user._id;
+    const data = await new StudentClass().deleteAccount(studentId);
+    res.status(data.statusCode).json(data);
+  },
+
+  // Privacy settings
+  privacySettings: async (req, res) => {
+    const studentId = req.user._id;
+    const settings = req.body;
+    const data = await new StudentClass().privacySettings(studentId, settings);
+    res.status(data.statusCode).json(data);
+  },
 };
 
 export default studentController;

@@ -47,4 +47,9 @@ router.put("/update-user", authenticate, studentController.updateStudent);
 // Update Student password
 router.put("/update-password", authenticate, studentController.updatePassword);
 
+// delete student route
+router.patch("/delete-account", authenticate, studentController.deleteAccount);
+
+// Privacy settings route
+router.put("/privacy", authenticate, studentController.privacySettings);
 export default router;
