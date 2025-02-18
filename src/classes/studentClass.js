@@ -1,6 +1,11 @@
 import Student from "../models/student.js";
 import PurchasedCourse from "../models/purchasedCourse.js";
 import Course from "../models/courses.js";
+import Comment from "../models/comments.js";
+import Review from "../models/review.js";
+import Messages from "../models/messaging.js";
+import Chat from "../models/chat.js";
+import Payment from "../models/payment.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import responses from "../utils/response.js";
@@ -23,6 +28,9 @@ export default class StudentClass {
     payload.verificationToken = crypto.randomBytes(32).toString("hex");
     payload.verificationTokenExpires = new Date(Date.now() + 3600000);
 
+    // Set isActive to false (only verified users should be active)
+    payload.isActive = false;
+
     // Save student data
     await Student.create(payload);
 
@@ -33,6 +41,7 @@ export default class StudentClass {
       firstName: payload.firstName,
       verificationLink,
     });
+
     const emailPayload = {
       to: payload.email,
       subject: "VERIFY YOUR EMAIL",
@@ -40,11 +49,13 @@ export default class StudentClass {
     };
     // send email by calling sendMail function
     await sendMail(emailPayload, constants.verifyEmail);
+
     const data = {
       firstName: payload.firstName,
       lastName: payload.lastName,
       email: payload.email,
     };
+
     return responses.successResponse("Registeration successful", 201, data);
   }
 
@@ -54,13 +65,17 @@ export default class StudentClass {
       verificationToken,
       verificationTokenExpires: { $gt: new Date() },
     });
+
     if (!student) {
       return responses.failureResponse("Invalid or Token Expired.", 400);
     }
+
     student.isVerified = true;
+    student.isActive = true;
     student.verificationToken = undefined;
     student.verificationTokenExpires = undefined;
     await student.save();
+
     return responses.successResponse(
       "Email verified successfully! Proceed to login",
       200
@@ -430,6 +445,80 @@ export default class StudentClass {
         "There was an error updating the student password",
         500
       );
+    }
+  }
+
+  async deleteAccount(studentId) {
+    try {
+      // Find and update the student (soft delete)
+      const student = await Student.findOneAndUpdate(
+        { _id: studentId, isActive: true },
+        { isActive: false, deletedAt: new Date() },
+        { new: true }
+      );
+
+      if (!student) {
+        return responses.failureResponse(
+          "Student not found or already deleted",
+          404
+        );
+      }
+
+      // Mark related data as inactive (instead of deletion)
+      await PurchasedCourse.updateMany(
+        { studentId },
+        { $set: { isActive: false } }
+      );
+      await Review.updateMany({ studentId }, { $set: { isActive: false } });
+      await Comment.updateMany({ studentId }, { $set: { isActive: false } });
+      await Chat.updateMany(
+        { student: studentId },
+        { $set: { isActive: false } }
+      );
+      await Messages.updateMany(
+        { senderId: studentId },
+        { $set: { isActive: false } }
+      );
+      await Messages.updateMany(
+        { receiverId: studentId },
+        { $set: { isActive: false } }
+      );
+
+      // Keep Payments but remove studentId
+      await Payment.updateMany({ studentId }, { $unset: { studentId: "" } });
+
+      return responses.successResponse(
+        "Account deleted successfully",
+        200,
+        student
+      );
+    } catch (error) {
+      console.error("Error deleting student account:", error);
+      return responses.failureResponse("Unable to delete this account", 500);
+    }
+  }
+
+  async privacySettings(studentId, settings) {
+    try {
+      // Update the student's privacy settings
+      const student = await Student.findByIdAndUpdate(
+        studentId,
+        { $set: { privacySettings: settings } },
+        { new: true }
+      );
+
+      if (!student) {
+        return responses.failureResponse("Student not found", 404);
+      }
+
+      return responses.successResponse(
+        "Privacy settings updated successfully",
+        200,
+        student
+      );
+    } catch (error) {
+      console.error("There was an error", error);
+      return responses.failureResponse("Unable to update user settings", 500);
     }
   }
 }

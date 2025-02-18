@@ -35,6 +35,20 @@ const studentSchema = new mongoose.Schema(
     resetPinExpires: {
       type: Date,
     },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    privacySettings: {
+      showProfile: { type: Boolean, default: true },
+      showCourses: { type: Boolean, default: true },
+      blockPopups: { type: Boolean, default: false },
+      storeActivityHistory: { type: Boolean, default: true },
+    },
   },
   {
     timestamps: true,
