@@ -35,8 +35,8 @@ export default class StudentClass {
     await Student.create(payload);
 
     // Use email template
-    const verificationLink = `${process.env.STUDENT_FRONTEND_HOST}/verified-email?verificationToken=${payload.verificationToken}`;
-    // const verificationLink = `${process.env.HOST}/verified-email?verificationToken=${payload.verificationToken}`;
+    // const verificationLink = `${process.env.STUDENT_FRONTEND_HOST}/verified-email?verificationToken=${payload.verificationToken}`;
+    const verificationLink = `${process.env.HOST}/verified-email?verificationToken=${payload.verificationToken}`;
     const emailTemplate = getTemplate("verifyemail.html", {
       firstName: payload.firstName,
       verificationLink,
@@ -90,11 +90,17 @@ export default class StudentClass {
       return responses.failureResponse("Student details incorrect", 404);
     }
 
-    if (foundStudent.isVerified !== true) {
+    // Prevent login if user isnt verified
+    if (!foundStudent.isVerified) {
       return responses.failureResponse(
         "Only verified students can login. Please verify your email",
         400
       );
+    }
+
+    // Prevent login if account is deactivated
+    if (!foundStudent.isActive) {
+      return responses.failureResponse("This account does not exist.", 404);
     }
 
     const studentPassword = await bcrypt.compare(
