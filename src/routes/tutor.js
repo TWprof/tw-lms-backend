@@ -23,4 +23,13 @@ router.put("/update-profile", authenticate, tutorController.updateProfile);
 
 router.patch("/delete", authenticate, tutorController.deleteAccount);
 
+router.post("/add-account", authenticate, tutorController.addBankDetails);
+
+router.get("/accounts", authenticate, tutorController.getAccounts);
+
+router.delete(
+  "/accounts/:accountId",
+  authenticate,
+  tutorController.deleteBankAccount
+);
 export default router;
