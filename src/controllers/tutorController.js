@@ -84,8 +84,8 @@ const tutorController = {
 
   deleteBankAccount: async (req, res) => {
     const tutorId = req.user._id;
-    const { accontId } = req.params;
-    const data = await new TutorClass().deleteBankAccount(accontId, tutorId);
+    const { accountId } = req.params;
+    const data = await new TutorClass().deleteBankAccount(accountId, tutorId);
     res.status(data.statusCode).json(data);
   },
 };
