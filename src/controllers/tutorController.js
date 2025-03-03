@@ -69,6 +69,25 @@ const tutorController = {
     const data = await new TutorClass().deleteAccount(tutorId);
     res.status(data.statusCode).json(data);
   },
+
+  addBankDetails: async (req, res) => {
+    const tutorId = req.user._id;
+    const data = await new TutorClass().addBankDetails(tutorId, req.body);
+    res.status(data.statusCode).json(data);
+  },
+
+  getAccounts: async (req, res) => {
+    const tutorId = req.user._id;
+    const data = await new TutorClass().getTutorBankAccounts(tutorId);
+    res.status(data.statusCode).json(data);
+  },
+
+  deleteBankAccount: async (req, res) => {
+    const tutorId = req.user._id;
+    const { accontId } = req.params;
+    const data = await new TutorClass().deleteBankAccount(accontId, tutorId);
+    res.status(data.statusCode).json(data);
+  },
 };
 
 export default tutorController;
