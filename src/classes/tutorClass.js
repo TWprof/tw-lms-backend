@@ -827,7 +827,7 @@ export default class TutorClass {
     try {
       const deletedAccount = await AccountNumber.findOneAndDelete({
         _id: accountId,
-        tutorId,
+        tutor: tutorId,
       });
 
       if (!deletedAccount) {
