@@ -3,6 +3,7 @@ import Course from "../models/courses.js";
 import Payment from "../models/payment.js";
 import PurchasedCourse from "../models/purchasedCourse.js";
 import Review from "../models/review.js";
+import AccountNumber from "../models/account.js";
 import responses from "../utils/response.js";
 import bcrypt from "bcrypt";
 
@@ -778,6 +779,70 @@ export default class TutorClass {
     } catch (error) {
       console.error("There was an error trying to delete your account", error);
       return responses.failureResponse("Unable to delete this account", 500);
+    }
+  }
+
+  async addBankDetails(tutorId, payload) {
+    try {
+      const { accountName, accountNumber, bankName } = payload;
+
+      const newAccount = new AccountNumber({
+        tutor: tutorId,
+        accountName,
+        accountNumber,
+        bankName,
+      });
+
+      await newAccount.save();
+
+      return responses.successResponse(
+        "Account details added successfully",
+        200,
+        newAccount
+      );
+    } catch (error) {
+      console.error("There was an error,", error);
+      return responses.failureResponse("Unable to add account number", 500);
+    }
+  }
+
+  async getTutorBankAccounts(tutorId) {
+    try {
+      const accounts = await AccountNumber.find({ tutor: tutorId });
+      if (!accounts.length) {
+        return responses.failureResponse("No bank accounts found", 404);
+      }
+
+      return responses.successResponse("Accounts displayed", 200, accounts);
+    } catch (error) {
+      console.error("There was an error fetching tutor account details", error);
+      return responses.failureResponse(
+        "Unable to retrieve tutor accounts",
+        500
+      );
+    }
+  }
+
+  async deleteBankAccount(accountId, tutorId) {
+    try {
+      const deletedAccount = await AccountNumber.findOneAndDelete({
+        _id: accountId,
+        tutorId,
+      });
+
+      if (!deletedAccount) {
+        return responses.failureResponse(
+          "Bank account not found or unauthorized",
+          400
+        );
+      }
+
+      return responses.successResponse(
+        "Bank account deleted successfully",
+        200
+      );
+    } catch (error) {
+      throw new Error("Error deleting bank account");
     }
   }
 }
