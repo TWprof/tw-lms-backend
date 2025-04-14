@@ -37,3 +37,10 @@ const authenticate = async (req, res, next) => {
 };
 
 export default authenticate;
+
+export const authorizeAdminOnly = (req, res, next) => {
+  if (!req.user || req.role !== "0") {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+  next();
+};
