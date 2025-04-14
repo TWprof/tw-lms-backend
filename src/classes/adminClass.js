@@ -1,4 +1,10 @@
 import Admin from "../models/admin.js";
+import Student from "../models/student.js";
+import PurchasedCourse from "../models/purchasedCourse.js";
+import Course from "../models/courses.js";
+import Payment from "../models/payment.js";
+import Comment from "../models/comments.js";
+import Review from "../models/review.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import responses from "../utils/response.js";
@@ -162,6 +168,136 @@ export default class AdminClass {
         "There was an error fetching the Tutors",
         500
       );
+    }
+  }
+
+  async adminOverview(adminId) {
+    try {
+      const admin = await Admin.findById(adminId);
+      if (!admin || admin.role !== "0") {
+        return responses.failureResponse("Unauthorized access", 403);
+      }
+
+      const [
+        totalStudents,
+        totalTutors,
+        totalCourses,
+        totalPurchases,
+        completedCourses,
+        totalRevenueData,
+        topCoursesAgg,
+        recentTransactions,
+        recentPurchases,
+        recentComments,
+        recentReviews,
+      ] = await Promise.all([
+        Student.countDocuments({ deletedAt: null }),
+        Admin.countDocuments({ role: "1" }),
+        Course.countDocuments(),
+        PurchasedCourse.countDocuments(),
+        PurchasedCourse.countDocuments({ isCompleted: 1 }),
+        Payment.aggregate([
+          { $match: { status: "success" } },
+          { $group: { _id: null, total: { $sum: "$amount" } } },
+        ]),
+        PurchasedCourse.aggregate([
+          {
+            $group: {
+              _id: "$courseId",
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { count: -1 } },
+          { $limit: 3 },
+        ]),
+        Payment.find({ status: "success" })
+          .sort({ createdAt: -1 })
+          .limit(5)
+          .populate("studentId", "firstName lastName"),
+        PurchasedCourse.find()
+          .sort({ createdAt: -1 })
+          .limit(3)
+          .populate("studentId", "firstName lastName")
+          .populate("courseId", "title"),
+        Comment.find()
+          .sort({ createdAt: -1 })
+          .limit(3)
+          .populate("studentId", "firstName lastName")
+          .populate("courseId", "title"),
+        Review.find()
+          .sort({ createdAt: -1 })
+          .limit(3)
+          .populate("studentId", "firstName lastName")
+          .populate("courseId", "title"),
+      ]);
+
+      const totalRevenue =
+        totalRevenueData.length > 0 ? totalRevenueData[0].total : 0;
+
+      // Bar chart data: monthly purchases
+      const barChartData = await PurchasedCourse.aggregate([
+        {
+          $group: {
+            _id: { $month: "$createdAt" },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]);
+
+      // Process recent activities into a flat list
+      const recentActivities = [
+        ...recentPurchases.map((item) => ({
+          activityType: "purchase",
+          studentName: `${item.studentId?.firstName || ""} ${
+            item.studentId?.lastName || ""
+          }`.trim(),
+          courseTitle: item.courseId?.title || "Unknown Course",
+          createdAt: item.createdAt,
+        })),
+        ...recentComments.map((item) => ({
+          activityType: "comment",
+          studentName: `${item.studentId?.firstName || ""} ${
+            item.studentId?.lastName || ""
+          }`.trim(),
+          courseTitle: item.courseId?.title || "Unknown Course",
+          createdAt: item.createdAt,
+        })),
+        ...recentReviews.map((item) => ({
+          activityType: "review",
+          studentName: `${item.studentId?.firstName || ""} ${
+            item.studentId?.lastName || ""
+          }`.trim(),
+          courseTitle: item.courseId?.title || "Unknown Course",
+          createdAt: item.createdAt,
+        })),
+      ]
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, 5); // Limit to 5 most recent
+
+      return responses.successResponse(
+        "Admin Overview fetched successfully",
+        200,
+        {
+          totalStudents,
+          totalTutors,
+          totalCourses,
+          totalPurchases,
+          completedCourses,
+          completionRate:
+            totalPurchases > 0
+              ? ((completedCourses / totalPurchases) * 100).toFixed(2)
+              : 0,
+          totalRevenue,
+          barChartData,
+          recentActivities,
+          topCourses: topCoursesAgg,
+          recentTransactions,
+        }
+      );
+    } catch (error) {
+      console.error("Error in fetching admin overview:", error);
+      return responses.failureResponse("Failed to fetch admin overview", 500);
     }
   }
 }
