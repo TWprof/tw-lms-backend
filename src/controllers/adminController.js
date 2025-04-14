@@ -26,6 +26,12 @@ const adminController = {
     const data = await new AdminClass().getAllTutors(req.query);
     res.status(data.statusCode).json(data);
   },
+
+  adminOverview: async (req, res) => {
+    const adminId = req.user._id;
+    const data = await new AdminClass().adminOverview(adminId);
+    res.status(data.statusCode).json(data);
+  },
 };
 
 export default adminController;
