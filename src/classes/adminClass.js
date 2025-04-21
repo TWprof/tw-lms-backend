@@ -5,8 +5,17 @@ import Course from "../models/courses.js";
 import Payment from "../models/payment.js";
 import Comment from "../models/comments.js";
 import Review from "../models/review.js";
+import {
+  getCoreMetrics,
+  getTotalRevenue,
+  getBarChartData,
+  getRecentActivities,
+  getTopCourses,
+  getTopTutors,
+} from "../utils/helpers.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import { startOfWeek, startOfMonth, startOfYear } from "date-fns";
 import responses from "../utils/response.js";
 import crypto from "crypto";
 import constants from "../constants/index.js";
@@ -15,8 +24,14 @@ import sendMail from "../utils/mail.js";
 
 export default class AdminClass {
   // Create Admin
-  async createAdmin(payload) {
+  async createAdmin(payload, adminId) {
     // User = Staff, Tutor, Admin
+    // Only an admin can create these users
+    const admin = await Admin.findById(adminId);
+    if (!admin || admin.role !== "0") {
+      return responses.failureResponse("Unauthorized access", 403);
+    }
+
     const user = await Admin.findOne({ email: payload.email });
 
     if (user) {
@@ -178,126 +193,112 @@ export default class AdminClass {
         return responses.failureResponse("Unauthorized access", 403);
       }
 
-      const [
-        totalStudents,
-        totalTutors,
-        totalCourses,
-        totalPurchases,
-        completedCourses,
-        totalRevenueData,
-        topCoursesAgg,
-        recentTransactions,
-        recentPurchases,
-        recentComments,
-        recentReviews,
-      ] = await Promise.all([
-        Student.countDocuments({ deletedAt: null }),
-        Admin.countDocuments({ role: "1" }),
-        Course.countDocuments(),
-        PurchasedCourse.countDocuments(),
-        PurchasedCourse.countDocuments({ isCompleted: 1 }),
-        Payment.aggregate([
-          { $match: { status: "success" } },
-          { $group: { _id: null, total: { $sum: "$amount" } } },
-        ]),
-        PurchasedCourse.aggregate([
-          {
-            $group: {
-              _id: "$courseId",
-              count: { $sum: 1 },
-            },
-          },
-          { $sort: { count: -1 } },
-          { $limit: 3 },
-        ]),
-        Payment.find({ status: "success" })
-          .sort({ createdAt: -1 })
-          .limit(5)
-          .populate("studentId", "firstName lastName"),
-        PurchasedCourse.find()
-          .sort({ createdAt: -1 })
-          .limit(3)
-          .populate("studentId", "firstName lastName")
-          .populate("courseId", "title"),
-        Comment.find()
-          .sort({ createdAt: -1 })
-          .limit(3)
-          .populate("studentId", "firstName lastName")
-          .populate("courseId", "title"),
-        Review.find()
-          .sort({ createdAt: -1 })
-          .limit(3)
-          .populate("studentId", "firstName lastName")
-          .populate("courseId", "title"),
+      // 1. Fetch core metrics
+      const metrics = await getCoreMetrics();
+
+      // 2. Fetch chart + recent activities + revenue
+      const [barChartData, recentActivities, totalRevenue] = await Promise.all([
+        getBarChartData(),
+        getRecentActivities(),
+        getTotalRevenue(),
       ]);
 
-      const totalRevenue =
-        totalRevenueData.length > 0 ? totalRevenueData[0].total : 0;
-
-      // Bar chart data: monthly purchases
-      const barChartData = await PurchasedCourse.aggregate([
-        {
-          $group: {
-            _id: { $month: "$createdAt" },
-            count: { $sum: 1 },
-          },
-        },
-        { $sort: { _id: 1 } },
+      // 3. Fetch top tutors and top courses
+      const [topCourses, topTutors] = await Promise.all([
+        getTopCourses(),
+        getTopTutors(),
       ]);
 
-      // Process recent activities into a flat list
-      const recentActivities = [
-        ...recentPurchases.map((item) => ({
-          activityType: "purchase",
-          studentName: `${item.studentId?.firstName || ""} ${
-            item.studentId?.lastName || ""
-          }`.trim(),
-          courseTitle: item.courseId?.title || "Unknown Course",
-          createdAt: item.createdAt,
-        })),
-        ...recentComments.map((item) => ({
-          activityType: "comment",
-          studentName: `${item.studentId?.firstName || ""} ${
-            item.studentId?.lastName || ""
-          }`.trim(),
-          courseTitle: item.courseId?.title || "Unknown Course",
-          createdAt: item.createdAt,
-        })),
-        ...recentReviews.map((item) => ({
-          activityType: "review",
-          studentName: `${item.studentId?.firstName || ""} ${
-            item.studentId?.lastName || ""
-          }`.trim(),
-          courseTitle: item.courseId?.title || "Unknown Course",
-          createdAt: item.createdAt,
-        })),
-      ]
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .slice(0, 5); // Limit to 5 most recent
+      // 4. Calculate platform-wide completion rate
+      const completionRate =
+        metrics.totalPurchases > 0
+          ? ((metrics.completedCourses / metrics.totalPurchases) * 100).toFixed(
+              2
+            )
+          : 0;
 
-      return responses.successResponse(
-        "Admin Overview fetched successfully",
-        200,
-        {
-          totalStudents,
-          totalTutors,
-          totalCourses,
-          totalPurchases,
-          completedCourses,
-          completionRate:
-            totalPurchases > 0
-              ? ((completedCourses / totalPurchases) * 100).toFixed(2)
-              : 0,
-          totalRevenue,
-          barChartData,
-          recentActivities,
-          topCourses: topCoursesAgg,
-          recentTransactions,
-        }
-      );
+      return responses.successResponse("Admin Overview fetched", 200, {
+        ...metrics,
+        completionRate,
+        totalRevenue,
+        barChartData,
+        recentActivities,
+        topCourses,
+        topTutors,
+      });
     } catch (error) {
-      console.error("Error in fetching admin overview:", error);
-      return responses.failureResponse("Failed to fetch admin overview", 500);
+      console.error("Error fetching overview:", error);
+      return responses.failureResponse("Failed to fetch overview", 500);
+    }
+  }
+
+  async adminStudents(adminId, filter = "all") {
+    try {
+      const admin = await Admin.findById(adminId);
+      if (!admin || admin.role !== "0") {
+        return responses.failureResponse("Unauthorized access", 403);
+      }
+
+      let dateFilter = {};
+      const now = new Date();
+
+      if (filter === "week") {
+        dateFilter = { $gte: startOfWeek(now) };
+      } else if (filter === "month") {
+        dateFilter = { $gte: startOfMonth(now) };
+      } else if (filter === "year") {
+        dateFilter = { $gte: startOfYear(now) };
+      }
+
+      const [totalStudents, purchasedCourses, completedCourses, reviews] =
+        await Promise.all([
+          Student.countDocuments({ deletedAt: null }),
+
+          PurchasedCourse.find(
+            filter !== "all" ? { createdAt: dateFilter } : {}
+          ).populate("studentId courseId"),
+
+          PurchasedCourse.find(
+            filter !== "all"
+              ? { isCompleted: true, createdAt: dateFilter }
+              : { isCompleted: true }
+          ),
+
+          Review.find(
+            filter !== "all" ? { createdAt: dateFilter } : {}
+          ).populate("studentId courseId"),
+        ]);
+
+      const abandonedCourses = purchasedCourses.filter((c) => !c.isCompleted);
+      const enrolledStudents = [
+        ...new Set(purchasedCourses.map((pc) => pc.studentId.toString())),
+      ];
+
+      const completionRate =
+        purchasedCourses.length > 0
+          ? ((completedCourses.length / purchasedCourses.length) * 100).toFixed(
+              2
+            )
+          : 0;
+
+      return responses.successResponse("Student stats fetched", 200, {
+        totalStudents,
+        totalPurchases: purchasedCourses.length,
+        completedCourses: completedCourses.length,
+        abandonedCourses: abandonedCourses.length,
+        completionRate,
+        enrolledStudentsCount: enrolledStudents.length,
+        reviews: reviews.map((r) => ({
+          student: r.studentId?.name || "Unknown",
+          course: r.courseId?.title || "Unknown",
+          rating: r.rating,
+          reviewText: r.reviewText,
+          createdAt: r.createdAt,
+        })),
+      });
+    } catch (error) {
+      console.error("There was an error", error);
+      return responses.failureResponse("Unable to fetch students data", 500);
     }
   }
 }

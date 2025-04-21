@@ -2,7 +2,8 @@ import AdminClass from "../classes/adminClass.js";
 
 const adminController = {
   createAdmin: async (req, res) => {
-    const data = await new AdminClass().createAdmin(req.body);
+    const adminId = req.user._id;
+    const data = await new AdminClass().createAdmin(req.body, adminId);
     res.status(data.statusCode).json(data);
   },
 
@@ -31,6 +32,11 @@ const adminController = {
     const adminId = req.user._id;
     const data = await new AdminClass().adminOverview(adminId);
     res.status(data.statusCode).json(data);
+  },
+
+  adminStudents: async (req, res) => {
+    const adminId = req.user._id;
+    const data = await new AdminClass().adminStudents();
   },
 };
 
