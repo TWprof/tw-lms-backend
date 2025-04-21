@@ -22,6 +22,14 @@ const adminSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
+    headline: {
+      type: String,
+      required: true,
+    },
+    gender: {
+      type: String,
+      enum: ["male, female"],
+    },
     country: {
       type: String,
     },
