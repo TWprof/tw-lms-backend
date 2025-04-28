@@ -119,7 +119,7 @@ export async function getRecentActivities() {
 // utils/adminAnalytics.js or inside AdminClass
 
 export async function getTopCourses() {
-  return PurchasedCourse.aggregate([
+  const topCourses = await PurchasedCourse.aggregate([
     {
       $group: {
         _id: "$courseId",
@@ -128,7 +128,32 @@ export async function getTopCourses() {
     },
     { $sort: { count: -1 } },
     { $limit: 3 },
+    {
+      $lookup: {
+        from: "courses",
+        localField: "_id",
+        foreignField: "_id",
+        as: "courseDetails",
+      },
+    },
+    {
+      $unwind: "$courseDetails", // Flatten array
+    },
+    {
+      $project: {
+        _id: 0, // hide the aggregation _id
+        courseId: "$courseDetails._id",
+        title: "$courseDetails.title",
+        price: "$courseDetails.price",
+        thumbnailURL: "$courseDetails.thumbnailURL",
+        tutorName: "$courseDetails.tutorName",
+        tutorEmail: "$courseDetails.tutorEmail",
+        purchaseCount: "$count", // from aggregation
+      },
+    },
   ]);
+
+  return topCourses;
 }
 
 export async function getTopTutors() {
