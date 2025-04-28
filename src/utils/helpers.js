@@ -132,47 +132,79 @@ export async function getTopCourses() {
 }
 
 export async function getTopTutors() {
-  const courses = await Course.find().select("tutor _id").lean();
-
-  // Group courses by tutor
-  const tutorCoursesMap = new Map();
-
-  for (let course of courses) {
-    const tutorId = course.tutor.toString();
-
-    if (!tutorCoursesMap.has(tutorId)) {
-      tutorCoursesMap.set(tutorId, []);
-    }
-
-    tutorCoursesMap.get(tutorId).push(course._id);
-  }
-
-  const tutorStats = [];
-
-  for (let [tutorId, courseIds] of tutorCoursesMap.entries()) {
-    const purchases = await PurchasedCourse.find({
-      courseId: { $in: courseIds },
-    }).lean();
-    const total = purchases.length;
-    const completed = purchases.filter((p) => p.isCompleted === 1).length;
-
-    const completionRate =
-      total > 0 ? ((completed / total) * 100).toFixed(2) : "0.00";
-
-    const tutorDetails = await Admin.findById(tutorId)
-      .select("firstName lastName email")
+  try {
+    // Step 1: Fetch all tutors' courses
+    const courses = await Course.find()
+      .select("_id tutor title thumbnailURL price purchaseCount")
       .lean();
 
-    tutorStats.push({
-      tutor: tutorId,
-      completionRate,
-      name: `${tutorDetails.firstName} ${tutorDetails.lastName}`,
-      email: tutorDetails.email,
-    });
-  }
+    // Group courses by tutor
+    const tutorCoursesMap = new Map();
 
-  // Sort by completionRate descending and return top 3
-  return tutorStats
-    .sort((a, b) => b.completionRate - a.completionRate)
-    .slice(0, 3);
+    for (let course of courses) {
+      const tutorId = course.tutor.toString();
+      if (!tutorCoursesMap.has(tutorId)) {
+        tutorCoursesMap.set(tutorId, []);
+      }
+      tutorCoursesMap.get(tutorId).push(course);
+    }
+
+    const tutorStats = [];
+
+    // Step 2: Calculate tutor stats
+    for (let [tutorId, courseList] of tutorCoursesMap.entries()) {
+      const courseIds = courseList.map((c) => c._id);
+
+      // Get all purchases related to tutor's courses
+      const purchases = await PurchasedCourse.find({
+        courseId: { $in: courseIds },
+      }).lean();
+
+      const totalPurchases = purchases.length;
+      const completedPurchases = purchases.filter(
+        (p) => p.isCompleted === 1
+      ).length;
+
+      const completionRate =
+        totalPurchases > 0
+          ? ((completedPurchases / totalPurchases) * 100).toFixed(2)
+          : "0.00";
+
+      // Find tutor details
+      const tutorDetails = await Admin.findById(tutorId)
+        .select("firstName lastName email")
+        .lean();
+
+      if (!tutorDetails) continue; // If tutor is deleted somehow, skip
+
+      // Find best-selling course (highest purchaseCount)
+      const bestSellingCourse = courseList.sort(
+        (a, b) => b.purchaseCount - a.purchaseCount
+      )[0];
+
+      tutorStats.push({
+        tutorId,
+        name: `${tutorDetails.firstName} ${tutorDetails.lastName}`,
+        email: tutorDetails.email,
+        completionRate: parseFloat(completionRate),
+        bestCourse: {
+          courseId: bestSellingCourse._id,
+          title: bestSellingCourse.title,
+          thumbnailURL: bestSellingCourse.thumbnailURL,
+          price: bestSellingCourse.price,
+          purchaseCount: bestSellingCourse.purchaseCount,
+        },
+      });
+    }
+
+    // Step 3: Sort by completion rate descending and return top 3
+    const topTutors = tutorStats
+      .sort((a, b) => b.completionRate - a.completionRate)
+      .slice(0, 3);
+
+    return topTutors;
+  } catch (error) {
+    console.error("Error fetching top tutors:", error);
+    throw error;
+  }
 }
