@@ -11,14 +11,25 @@ router.post(
   adminController.createAdmin
 );
 router.post("/set-password", adminController.setPassword);
+
 router.post("/login", adminController.adminLogin);
+
 router.get("/tutor/all", adminController.getAllTutors);
 
 router.get("/tutor/:tutorId", adminController.getTutor);
+
 router.get(
   "/overview",
   authenticate,
   authorizeAdminOnly,
   adminController.adminOverview
 );
+
+router.get(
+  "/students",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.adminStudents
+);
+
 export default router;
