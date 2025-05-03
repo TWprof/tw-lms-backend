@@ -342,4 +342,38 @@ export default class AdminClass {
       return responses.failureResponse("Failed to fetch analytics", 500);
     }
   }
+
+  async softDeleteTutor(adminId, tutorId) {
+    try {
+      const admin = await Admin.findById(adminId);
+      if (!admin || admin.role !== "0") {
+        return responses.failureResponse("Unauthorized access", 403);
+      }
+
+      // Check if tutor exists and is not already soft deleted
+      const tutor = await Admin.findOne({ _id: tutorId, role: "1" });
+      if (!tutor) {
+        return responses.failureResponse(
+          "Tutor does not exist or has already been removed",
+          400
+        );
+      }
+
+      // Soft delete: set isActive to false
+      if (!tutor.isActive) {
+        return responses.failureResponse("Tutor is already removed", 400);
+      }
+
+      tutor.isActive = false;
+      await tutor.save();
+
+      return responses.successResponse("Tutor removed successfully", 200);
+    } catch (error) {
+      console.error("Unable to delete tutor:", error);
+      return responses.failureResponse(
+        "There was an error deleting this tutor",
+        500
+      );
+    }
+  }
 }
