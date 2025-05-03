@@ -1,3 +1,4 @@
+import { startOfWeek, startOfMonth, startOfYear } from "date-fns";
 import Admin from "../models/admin.js";
 import Student from "../models/student.js";
 import PurchasedCourse from "../models/purchasedCourse.js";
@@ -116,8 +117,6 @@ export async function getRecentActivities() {
     .slice(0, 5);
 }
 
-// utils/adminAnalytics.js or inside AdminClass
-
 export async function getTopCourses() {
   const topCourses = await PurchasedCourse.aggregate([
     {
@@ -232,4 +231,101 @@ export async function getTopTutors() {
     console.error("Error fetching top tutors:", error);
     throw error;
   }
+}
+
+export function getDateFilter(filter) {
+  const now = new Date();
+
+  if (filter === "week") {
+    return { createdAt: { $gte: startOfWeek(now) } };
+  } else if (filter === "month") {
+    return { createdAt: { $gte: startOfMonth(now) } };
+  } else if (filter === "year") {
+    return { createdAt: { $gte: startOfYear(now) } };
+  } else {
+    return {}; // no filter for "all"
+  }
+}
+
+export async function getTotalStudents() {
+  return Student.countDocuments({ deletedAt: null });
+}
+
+export async function getPurchasedCourses(dateFilter) {
+  return PurchasedCourse.find(dateFilter).populate("studentId courseId");
+}
+
+export async function getCompletedCourses(dateFilter) {
+  return PurchasedCourse.find({
+    isCompleted: true,
+    ...dateFilter,
+  });
+}
+
+export async function getReviews(dateFilter) {
+  return Review.find(dateFilter).populate("studentId courseId");
+}
+
+export function calculateCompletionRate(purchasedCourses, completedCourses) {
+  return purchasedCourses.length > 0
+    ? ((completedCourses.length / purchasedCourses.length) * 100).toFixed(2)
+    : 0;
+}
+
+export async function getEnrolledStudents(
+  purchasedCourses,
+  page = 1,
+  limit = 10
+) {
+  const skip = (page - 1) * limit;
+  const paginated = purchasedCourses.slice(skip, skip + limit);
+
+  // Get the actual documents for the paginated purchasedCourses with full population
+  const ids = paginated.map((item) => item._id);
+  const purchases = await PurchasedCourse.find({ _id: { $in: ids } })
+    .populate("studentId", "firstName lastName email")
+    .populate("courseId", "title")
+    .populate("paymentId", "amount status");
+
+  const students = purchases.map((item) => ({
+    studentName:
+      `${item.studentId?.firstName || ""} ${
+        item.studentId?.lastName || ""
+      }`.trim() || "Unknown",
+    email: item.studentId?.email || "Unknown",
+    purchaseDate: item.createdAt,
+    courseTitle: item.courseId?.title || "Unknown",
+    amountPaid:
+      item.paymentId?.status === "success" ? item.paymentId.amount : 0,
+  }));
+
+  return {
+    students,
+    total: purchasedCourses.length,
+  };
+}
+
+export async function getTimeStatistics(dateFilter = {}) {
+  const matchStage =
+    Object.keys(dateFilter).length > 0 ? { updatedAt: dateFilter } : {};
+
+  const stats = await PurchasedCourse.aggregate([
+    { $match: matchStage },
+    {
+      $group: {
+        _id: { $dayOfWeek: "$updatedAt" }, // 1 = Sunday, 7 = Saturday
+        totalMinutesSpent: { $sum: "$minutesSpent" },
+      },
+    },
+    {
+      $project: {
+        dayOfWeek: "$_id",
+        totalMinutesSpent: 1,
+        _id: 0,
+      },
+    },
+    { $sort: { dayOfWeek: 1 } },
+  ]);
+
+  return stats;
 }
