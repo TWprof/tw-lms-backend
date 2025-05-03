@@ -312,6 +312,7 @@ export default class AdminClass {
         topCourses,
         salesTrend,
         totalRevenue,
+        tutorList,
       ] = await Promise.all([
         Admin.countDocuments({ role: "1" }),
         getNewTutors(timeframe),
@@ -320,6 +321,9 @@ export default class AdminClass {
         getTopCourses(5),
         getSalesTrend(timeframe),
         getTotalRevenue(),
+        Admin.find({ role: "1" })
+          .sort({ createdAt: -1 })
+          .select("-password -__v"),
       ]);
 
       // Calculate averages
@@ -331,6 +335,7 @@ export default class AdminClass {
         topTutors,
         topCourses,
         salesTrend,
+        tutorList,
       });
     } catch (error) {
       console.error("Analytics error:", error);
