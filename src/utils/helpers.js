@@ -329,3 +329,68 @@ export async function getTimeStatistics(dateFilter = {}) {
 
   return stats;
 }
+
+/**
+ * Get new tutors count for a timeframe (reuses getDateFilter)
+ */
+export async function getNewTutors(timeframe) {
+  return Admin.countDocuments({
+    role: "1",
+    ...getDateFilter(timeframe),
+  });
+}
+
+/**
+ * Get average tutor rating (simple aggregation)
+ */
+export async function getAverageTutorRating() {
+  const result = await Admin.aggregate([
+    { $match: { role: "1" } },
+    { $group: { _id: null, avgRating: { $avg: "$rating" } } },
+  ]);
+  return result[0]?.avgRating?.toFixed(1) || 0;
+}
+
+/**
+ * Enhanced sales trend with tutor growth (modifies getBarChartData)
+ */
+export async function getSalesTrend(filter = "month") {
+  const payments = await Payment.aggregate([
+    { $match: { status: "success" } },
+    {
+      $group: {
+        _id: {
+          month: { $month: "$createdAt" },
+          year: { $year: "$createdAt" },
+        },
+        totalAmount: { $sum: "$amount" },
+      },
+    },
+    { $sort: { "_id.year": 1, "_id.month": 1 } },
+  ]);
+
+  const monthlyTotals = {};
+
+  // Aggregate totals per month
+  payments.forEach((item) => {
+    if (!item._id) return;
+    const { month } = item._id;
+    monthlyTotals[month] = item.totalAmount;
+  });
+
+  // Build array for all 12 months
+  const trend = Array.from({ length: 12 }, (_, i) => {
+    const monthIndex = i + 1;
+    const amount = monthlyTotals[monthIndex] || 0;
+    const platformCharge = +(amount * 0.1).toFixed(2);
+    const tutorRevenue = +(amount * 0.9).toFixed(2);
+
+    return {
+      month: new Date(0, i).toLocaleString("default", { month: "short" }),
+      tutorRevenue,
+      platformCharge,
+    };
+  });
+
+  return trend;
+}

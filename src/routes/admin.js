@@ -32,4 +32,11 @@ router.get(
   adminController.adminStudents
 );
 
+router.get(
+  "/tutor-analytics",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.adminTutors
+);
+
 export default router;
