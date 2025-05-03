@@ -341,13 +341,27 @@ export async function getNewTutors(timeframe) {
 }
 
 /**
- * Get average tutor rating (simple aggregation)
+ * Get average tutor rating by courses
+ * since tutors do not get individual ratings, just their courses (simple aggregation)
  */
+
 export async function getAverageTutorRating() {
-  const result = await Admin.aggregate([
-    { $match: { role: "1" } },
-    { $group: { _id: null, avgRating: { $avg: "$rating" } } },
+  const result = await Course.aggregate([
+    { $match: { rating: { $exists: true, $gt: 0 } } },
+    {
+      $group: {
+        _id: "$tutorId",
+        tutorAvgRating: { $avg: "$rating" },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        avgRating: { $avg: "$tutorAvgRating" },
+      },
+    },
   ]);
+
   return result[0]?.avgRating?.toFixed(1) || 0;
 }
 
