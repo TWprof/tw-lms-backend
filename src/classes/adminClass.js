@@ -6,6 +6,9 @@ import {
   getRecentActivities,
   getTopCourses,
   getTopTutors,
+  getNewTutors,
+  getAverageTutorRating,
+  getSalesTrend,
   getTotalStudents,
   getEnrolledStudents,
   getReviews,
@@ -291,6 +294,47 @@ export default class AdminClass {
     } catch (error) {
       console.error("There was an error", error);
       return responses.failureResponse("Unable to fetch students data", 500);
+    }
+  }
+
+  async adminTutorAnalytics(adminId, timeframe = "month") {
+    try {
+      const admin = await Admin.findById(adminId);
+      if (!admin || admin.role !== "0") {
+        return responses.failureResponse("Unauthorized access", 403);
+      }
+
+      const [
+        totalTutors,
+        newTutors,
+        averageRating,
+        topTutors,
+        topCourses,
+        salesTrend,
+        totalRevenue,
+      ] = await Promise.all([
+        Admin.countDocuments({ role: "1" }),
+        getNewTutors(timeframe),
+        getAverageTutorRating(),
+        getTopTutors(3),
+        getTopCourses(5),
+        getSalesTrend(timeframe),
+        getTotalRevenue(),
+      ]);
+
+      // Calculate averages
+      const averageRevenue =
+        totalTutors > 0 ? (totalRevenue / totalTutors).toFixed(2) : 0;
+
+      return responses.successResponse("Analytics fetched", 200, {
+        overview: { totalTutors, newTutors, averageRating, averageRevenue },
+        topTutors,
+        topCourses,
+        salesTrend,
+      });
+    } catch (error) {
+      console.error("Analytics error:", error);
+      return responses.failureResponse("Failed to fetch analytics", 500);
     }
   }
 }
