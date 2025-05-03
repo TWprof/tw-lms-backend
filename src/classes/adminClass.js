@@ -1,10 +1,4 @@
 import Admin from "../models/admin.js";
-import Student from "../models/student.js";
-import PurchasedCourse from "../models/purchasedCourse.js";
-import Course from "../models/courses.js";
-import Payment from "../models/payment.js";
-import Comment from "../models/comments.js";
-import Review from "../models/review.js";
 import {
   getCoreMetrics,
   getTotalRevenue,
@@ -12,10 +6,17 @@ import {
   getRecentActivities,
   getTopCourses,
   getTopTutors,
+  getTotalStudents,
+  getEnrolledStudents,
+  getReviews,
+  getTimeStatistics,
+  getPurchasedCourses,
+  getCompletedCourses,
+  calculateCompletionRate,
 } from "../utils/helpers.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
-import { startOfWeek, startOfMonth, startOfYear } from "date-fns";
+import { getDateFilter } from "../utils/helpers.js";
 import responses from "../utils/response.js";
 import crypto from "crypto";
 import constants from "../constants/index.js";
@@ -232,54 +233,49 @@ export default class AdminClass {
     }
   }
 
-  async adminStudents(adminId, filter = "all") {
+  async adminStudents(adminId, filter = "all", page = 1, limit = 10) {
     try {
       const admin = await Admin.findById(adminId);
       if (!admin || admin.role !== "0") {
         return responses.failureResponse("Unauthorized access", 403);
       }
 
-      let dateFilter = {};
-      const now = new Date();
+      const dateFilter = getDateFilter(filter);
 
-      if (filter === "week") {
-        dateFilter = { $gte: startOfWeek(now) };
-      } else if (filter === "month") {
-        dateFilter = { $gte: startOfMonth(now) };
-      } else if (filter === "year") {
-        dateFilter = { $gte: startOfYear(now) };
-      }
-
-      const [totalStudents, purchasedCourses, completedCourses, reviews] =
-        await Promise.all([
-          Student.countDocuments({ deletedAt: null }),
-
-          PurchasedCourse.find(
-            filter !== "all" ? { createdAt: dateFilter } : {}
-          ).populate("studentId courseId"),
-
-          PurchasedCourse.find(
-            filter !== "all"
-              ? { isCompleted: true, createdAt: dateFilter }
-              : { isCompleted: true }
-          ),
-
-          Review.find(
-            filter !== "all" ? { createdAt: dateFilter } : {}
-          ).populate("studentId courseId"),
-        ]);
+      const [
+        totalStudents,
+        purchasedCourses,
+        completedCourses,
+        reviews,
+        timeStats,
+      ] = await Promise.all([
+        getTotalStudents(),
+        getPurchasedCourses(dateFilter),
+        getCompletedCourses(dateFilter),
+        getReviews(dateFilter),
+        getTimeStatistics(dateFilter),
+      ]);
 
       const abandonedCourses = purchasedCourses.filter((c) => !c.isCompleted);
-      const enrolledStudents = [
-        ...new Set(purchasedCourses.map((pc) => pc.studentId.toString())),
-      ];
 
-      const completionRate =
-        purchasedCourses.length > 0
-          ? ((completedCourses.length / purchasedCourses.length) * 100).toFixed(
-              2
-            )
-          : 0;
+      const { students: enrolledStudents, total: enrolledStudentsCount } =
+        await getEnrolledStudents(purchasedCourses, page, limit);
+
+      const completionRate = calculateCompletionRate(
+        purchasedCourses,
+        completedCourses
+      );
+
+      const mappedReviews = reviews.map((r) => ({
+        student:
+          `${r.studentId?.firstName || ""} ${
+            r.studentId?.lastName || ""
+          }`.trim() || "Unknown",
+        course: r.courseId?.title || "Unknown",
+        rating: r.rating,
+        reviewText: r.reviewText,
+        createdAt: r.createdAt,
+      }));
 
       return responses.successResponse("Student stats fetched", 200, {
         totalStudents,
@@ -287,14 +283,10 @@ export default class AdminClass {
         completedCourses: completedCourses.length,
         abandonedCourses: abandonedCourses.length,
         completionRate,
-        enrolledStudentsCount: enrolledStudents.length,
-        reviews: reviews.map((r) => ({
-          student: r.studentId?.name || "Unknown",
-          course: r.courseId?.title || "Unknown",
-          rating: r.rating,
-          reviewText: r.reviewText,
-          createdAt: r.createdAt,
-        })),
+        enrolledStudents,
+        enrolledStudentsCount,
+        reviews: mappedReviews,
+        timeStats,
       });
     } catch (error) {
       console.error("There was an error", error);

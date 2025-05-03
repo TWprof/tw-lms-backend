@@ -36,7 +36,9 @@ const adminController = {
 
   adminStudents: async (req, res) => {
     const adminId = req.user._id;
-    const data = await new AdminClass().adminStudents();
+    const filter = req.query.filter || "all";
+    const data = await new AdminClass().adminStudents(adminId, filter);
+    res.status(data.statusCode).json(data);
   },
 };
 
