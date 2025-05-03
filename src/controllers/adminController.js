@@ -1,4 +1,5 @@
 import AdminClass from "../classes/adminClass.js";
+import Admin from "../models/admin.js";
 
 const adminController = {
   createAdmin: async (req, res) => {
@@ -38,6 +39,13 @@ const adminController = {
     const adminId = req.user._id;
     const filter = req.query.filter || "all";
     const data = await new AdminClass().adminStudents(adminId, filter);
+    res.status(data.statusCode).json(data);
+  },
+
+  adminTutors: async (req, res) => {
+    const adminId = req.user._id;
+    const timeframe = req.query.filter || "all";
+    const data = await new AdminClass().adminTutorAnalytics(adminId, timeframe);
     res.status(data.statusCode).json(data);
   },
 };
