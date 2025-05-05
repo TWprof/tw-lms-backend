@@ -18,6 +18,13 @@ router.get("/tutor/all", adminController.getAllTutors);
 
 router.get("/tutor/:tutorId", adminController.getTutor);
 
+router.put(
+  "/delete/:tutorId",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.deleteTutor
+);
+
 router.get(
   "/overview",
   authenticate,

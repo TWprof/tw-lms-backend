@@ -48,6 +48,13 @@ const adminController = {
     const data = await new AdminClass().adminTutorAnalytics(adminId, timeframe);
     res.status(data.statusCode).json(data);
   },
+
+  deleteTutor: async (req, res) => {
+    const adminId = req.user._id;
+    const tutorId = req.params.tutorId;
+    const data = await new AdminClass().softDeleteTutor(adminId, tutorId);
+    res.status(data.statusCode).json(data);
+  },
 };
 
 export default adminController;
