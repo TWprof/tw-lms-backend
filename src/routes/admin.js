@@ -46,4 +46,18 @@ router.get(
   adminController.adminTutors
 );
 
+router.get(
+  "/transactions",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.adminTransactions
+);
+
+router.get(
+  "/courses",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.adminCourses
+);
+
 export default router;
