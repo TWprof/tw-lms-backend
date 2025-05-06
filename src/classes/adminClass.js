@@ -26,6 +26,7 @@ import constants from "../constants/index.js";
 import getTemplate from "../utils/getTemplates.js";
 import sendMail from "../utils/mail.js";
 import Payment from "../models/payment.js";
+import Course from "../models/courses.js";
 
 export default class AdminClass {
   // Create Admin
@@ -423,6 +424,45 @@ export default class AdminClass {
         "Unable to fetch transaction statistics",
         500
       );
+    }
+  }
+  async fetchCourses(adminId, query = {}) {
+    try {
+      const admin = await Admin.findById(adminId);
+      if (!admin || admin.role !== "0") {
+        return responses.failureResponse("Unauthorized access", 403);
+      }
+
+      const page = parseInt(query.page, 10) || 1;
+      const limit = parseInt(query.limit, 10) || 10;
+      const skip = (page - 1) * limit;
+
+      // Remove pagination parameters from the query object
+      delete query.page;
+      delete query.limit;
+
+      const courses = await Course.find(query)
+        .select("title tutorName price isPublished createdAt")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+
+      const totalCounts = await Course.countDocuments(query);
+
+      return responses.successResponse(
+        "Successfully fetched all courses",
+        200,
+        {
+          totalCounts,
+          data: courses,
+          page,
+          noPerPage: limit,
+        }
+      );
+    } catch (error) {
+      console.error("Error in fetching courses:", error);
+      return responses.failureResponse("Failed to fetch all courses", 500);
     }
   }
 }
