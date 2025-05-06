@@ -25,6 +25,7 @@ import crypto from "crypto";
 import constants from "../constants/index.js";
 import getTemplate from "../utils/getTemplates.js";
 import sendMail from "../utils/mail.js";
+import Payment from "../models/payment.js";
 
 export default class AdminClass {
   // Create Admin
@@ -372,6 +373,54 @@ export default class AdminClass {
       console.error("Unable to delete tutor:", error);
       return responses.failureResponse(
         "There was an error deleting this tutor",
+        500
+      );
+    }
+  }
+
+  async adminTransactions(adminId, query) {
+    try {
+      const admin = await Admin.findById(adminId);
+      if (!admin || admin.role !== "0") {
+        return responses.failureResponse("Unauthorized access", 403);
+      }
+
+      const page = parseInt(query.page) || 1;
+      const limit = parseInt(query.limit) || 10;
+      const skip = (page - 1) * limit;
+
+      const successfulPayments = await Payment.find({ status: "success" });
+
+      const totalTransactions = successfulPayments.length;
+      const totalRevenue = successfulPayments.reduce(
+        (sum, payment) => sum + (payment.amount || 0),
+        0
+      );
+      const averageRevenue =
+        totalTransactions > 0
+          ? (totalRevenue / totalTransactions).toFixed(2)
+          : 0;
+
+      const transactions = await Payment.find({ status: "success" })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select("amount email date reference channel currency");
+
+      return responses.successResponse(
+        "Transaction statistics fetched successfully",
+        200,
+        {
+          totalTransactions,
+          averageRevenue,
+          totalRevenue,
+          transactions,
+        }
+      );
+    } catch (error) {
+      console.error("There was an error", error);
+      return responses.failureResponse(
+        "Unable to fetch transaction statistics",
         500
       );
     }
