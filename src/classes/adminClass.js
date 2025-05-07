@@ -545,4 +545,58 @@ export default class AdminClass {
       return responses.failureResponse("Unable to fetch course", 500);
     }
   }
+
+  async updateAdminProfile(adminId, payload) {
+    try {
+      // Validate admin existence and role
+      const admin = await Admin.findById(adminId);
+      if (!admin || admin.role !== "0") {
+        return responses.failureResponse("Unauthorized access", 403);
+      }
+
+      // Update admin profile
+      const updatedAdmin = await Admin.findByIdAndUpdate(adminId, payload, {
+        new: true,
+        runValidators: true,
+      });
+
+      if (!updatedAdmin) {
+        return responses.failureResponse("Admin not found", 404);
+      }
+
+      return responses.successResponse(
+        "Admin profile updated successfully",
+        200,
+        updatedAdmin
+      );
+    } catch (error) {
+      console.error("Error updating admin profile:", error);
+      return responses.failureResponse("Unable to update admin profile", 500);
+    }
+  }
+
+  async deleteAdminAccount(adminId) {
+    try {
+      const admin = await Admin.findById(adminId);
+      if (!admin || admin.role !== "0") {
+        return responses.failureResponse("Unauthorized access", 403);
+      }
+
+      // Permanently delete the admin account
+      const deletedAdmin = await Admin.findByIdAndDelete(adminId);
+
+      if (!deletedAdmin) {
+        return responses.failureResponse("Admin not found", 404);
+      }
+
+      return responses.successResponse(
+        "Admin account deleted successfully",
+        200,
+        deletedAdmin
+      );
+    } catch (error) {
+      console.error("Error deleting admin account:", error);
+      return responses.failureResponse("Unable to delete admin account", 500);
+    }
+  }
 }

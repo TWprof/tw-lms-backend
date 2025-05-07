@@ -84,6 +84,19 @@ const adminController = {
     const data = await new AdminClass().fetchCoursesById(adminId, courseId);
     res.status(data.statusCode).json(data);
   },
+
+  updateAdminProfile: async (req, res) => {
+    const adminId = req.user._id;
+    const payload = req.body;
+    const data = await new AdminClass().updateAdminProfile(adminId, payload);
+    res.status(data.statusCode).json(data);
+  },
+
+  deleteAdmin: async (req, res) => {
+    const adminId = req.user._id;
+    const data = await new AdminClass().deleteAdminAccount(adminId);
+    res.status(data.statusCode).json(data);
+  },
 };
 
 export default adminController;
