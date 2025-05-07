@@ -92,6 +92,13 @@ const adminController = {
     res.status(data.statusCode).json(data);
   },
 
+  changePassword: async (req, res) => {
+    const adminId = req.user._id;
+    const payload = req.body;
+    const data = await new AdminClass().changeAdminPassword(adminId, payload);
+    res.status(data.statusCode).json(data);
+  },
+
   deleteAdmin: async (req, res) => {
     const adminId = req.user._id;
     const data = await new AdminClass().deleteAdminAccount(adminId);
