@@ -74,4 +74,17 @@ router.get(
   adminController.adminCoursesById
 );
 
+router.put(
+  "/update-profile",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.updateAdminProfile
+);
+
+router.delete(
+  "/delete",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.deleteAdmin
+);
 export default router;
