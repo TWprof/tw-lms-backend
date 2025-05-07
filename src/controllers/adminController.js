@@ -67,6 +67,23 @@ const adminController = {
     const data = await new AdminClass().fetchCourses(adminId, req.query);
     res.status(data.statusCode).json(data);
   },
+
+  adminTransactionsById: async (req, res) => {
+    const adminId = req.user._id;
+    const transactionId = req.params.transactionId;
+    const data = await new AdminClass().adminTransactionsById(
+      adminId,
+      transactionId
+    );
+    res.status(data.statusCode).json(data);
+  },
+
+  adminCoursesById: async (req, res) => {
+    const adminId = req.user._id;
+    const courseId = req.params.courseId;
+    const data = await new AdminClass().fetchCoursesById(adminId, courseId);
+    res.status(data.statusCode).json(data);
+  },
 };
 
 export default adminController;

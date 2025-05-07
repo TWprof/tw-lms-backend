@@ -390,7 +390,10 @@ export default class AdminClass {
       const limit = parseInt(query.limit) || 10;
       const skip = (page - 1) * limit;
 
-      const successfulPayments = await Payment.find({ status: "success" });
+      // Fetch successful payments with populated student information
+      const successfulPayments = await Payment.find({ status: "success" })
+        .populate("studentId", "firstName lastName")
+        .sort({ createdAt: -1 });
 
       const totalTransactions = successfulPayments.length;
       const totalRevenue = successfulPayments.reduce(
@@ -402,11 +405,21 @@ export default class AdminClass {
           ? (totalRevenue / totalTransactions).toFixed(2)
           : 0;
 
-      const transactions = await Payment.find({ status: "success" })
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .select("amount email date reference channel currency");
+      // Paginate the successful payments
+      const transactions = successfulPayments
+        .slice(skip, skip + limit)
+        .map((payment) => ({
+          transactionId: payment._id,
+          studentName: payment.studentId
+            ? `${payment.studentId.firstName} ${payment.studentId.lastName}`
+            : "Unknown",
+          amount: payment.amount,
+          email: payment.email,
+          date: payment.date,
+          reference: payment.reference,
+          channel: payment.channel,
+          currency: payment.currency,
+        }));
 
       return responses.successResponse(
         "Transaction statistics fetched successfully",
@@ -424,6 +437,45 @@ export default class AdminClass {
         "Unable to fetch transaction statistics",
         500
       );
+    }
+  }
+
+  async adminTransactionsById(adminId, transactionId) {
+    try {
+      const admin = await Admin.findById(adminId);
+      if (!admin || admin.role !== "0") {
+        return responses.failureResponse("Unauthorized access", 403);
+      }
+
+      // Fetch the transaction and populate student details
+      const transaction = await Payment.findById(transactionId)
+        .populate("studentId", "firstName lastName")
+        .select("amount email date reference channel currency studentId");
+
+      if (!transaction) {
+        return responses.failureResponse("Transaction not found", 404);
+      }
+
+      const result = {
+        studentName: transaction.studentId
+          ? `${transaction.studentId.firstName} ${transaction.studentId.lastName}`
+          : "Unknown",
+        amount: transaction.amount,
+        email: transaction.email,
+        date: transaction.date,
+        reference: transaction.reference,
+        channel: transaction.channel,
+        currency: transaction.currency,
+      };
+
+      return responses.successResponse(
+        "Transaction fetched successfully",
+        200,
+        result
+      );
+    } catch (error) {
+      console.error("Error fetching transaction:", error);
+      return responses.failureResponse("Unable to fetch transaction", 500);
     }
   }
   async fetchCourses(adminId, query = {}) {
@@ -463,6 +515,34 @@ export default class AdminClass {
     } catch (error) {
       console.error("Error in fetching courses:", error);
       return responses.failureResponse("Failed to fetch all courses", 500);
+    }
+  }
+
+  async fetchCoursesById(adminId, courseId) {
+    try {
+      // Verify admin privileges
+      const admin = await Admin.findById(adminId);
+      if (!admin || admin.role !== "0") {
+        return responses.failureResponse("Unauthorized access", 403);
+      }
+
+      // Fetch the course details
+      const course = await Course.findById(courseId).select(
+        "title description thumbnailURL price isPublished createdAt tutorName tutorEmail rating"
+      );
+
+      if (!course) {
+        return responses.failureResponse("Course not found", 404);
+      }
+
+      return responses.successResponse(
+        "Course fetched successfully",
+        200,
+        course
+      );
+    } catch (error) {
+      console.error("Error fetching course:", error);
+      return responses.failureResponse("Unable to fetch course", 500);
     }
   }
 }
