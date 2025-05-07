@@ -81,6 +81,13 @@ router.put(
   adminController.updateAdminProfile
 );
 
+router.put(
+  "/update-password",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.changePassword
+);
+
 router.delete(
   "/delete",
   authenticate,
