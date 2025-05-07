@@ -60,4 +60,31 @@ router.get(
   adminController.adminCourses
 );
 
+router.get(
+  "/transactions/:transactionId",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.adminTransactionsById
+);
+
+router.get(
+  "/courses/:courseId",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.adminCoursesById
+);
+
+router.put(
+  "/update-profile",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.updateAdminProfile
+);
+
+router.delete(
+  "/delete",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.deleteAdmin
+);
 export default router;
