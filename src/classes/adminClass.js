@@ -591,8 +591,7 @@ export default class AdminClass {
 
       return responses.successResponse(
         "Admin account deleted successfully",
-        200,
-        deletedAdmin
+        200
       );
     } catch (error) {
       console.error("Error deleting admin account:", error);
