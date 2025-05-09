@@ -575,6 +575,64 @@ export default class AdminClass {
     }
   }
 
+  async changeAdminPassword(adminId, payload) {
+    try {
+      const { oldPassword, newPassword } = payload;
+
+      if (!oldPassword || !newPassword) {
+        return responses.failureResponse(
+          "Old and new passwords are required",
+          400
+        );
+      }
+
+      const admin = await Admin.findById(adminId);
+
+      if (!admin || admin.role !== "0") {
+        return responses.failureResponse(
+          "Invalid admin token. There is no admin with this Id",
+          400
+        );
+      }
+
+      if (!admin.password) {
+        return responses.failureResponse(
+          "Admin password is not set. Please contact support.",
+          400
+        );
+      }
+
+      // Check if the old password is correct
+      const isMatch = await bcrypt.compare(oldPassword, admin.password);
+
+      if (!isMatch) {
+        console.log("Password does not match");
+        return responses.failureResponse("This password is incorrect", 400);
+      }
+
+      // Hash and set the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      const updatedAdmin = await Admin.findByIdAndUpdate(
+        adminId,
+        { password: hashedPassword },
+        { new: true }
+      );
+
+      return responses.successResponse(
+        "Admin password updated successfully",
+        200,
+        updatedAdmin
+      );
+    } catch (error) {
+      console.error("Unable to update the password", error);
+      return responses.failureResponse(
+        "There was an error updating the admin password",
+        500
+      );
+    }
+  }
+
   async deleteAdminAccount(adminId) {
     try {
       const admin = await Admin.findById(adminId);
@@ -591,8 +649,7 @@ export default class AdminClass {
 
       return responses.successResponse(
         "Admin account deleted successfully",
-        200,
-        deletedAdmin
+        200
       );
     } catch (error) {
       console.error("Error deleting admin account:", error);
