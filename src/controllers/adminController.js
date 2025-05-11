@@ -104,6 +104,21 @@ const adminController = {
     const data = await new AdminClass().deleteAdminAccount(adminId);
     res.status(data.statusCode).json(data);
   },
+
+  approveCourse: async (req, res) => {
+    const adminId = req.user._id;
+    const courseId = req.params.courseId;
+    const data = await new AdminClass().approveCourse(adminId, courseId);
+    res.status(data.statusCode).json(data);
+  },
+
+  rejectCourse: async (req, res) => {
+    const adminId = req.user._id;
+    const courseId = req.params.courseId;
+    const reason = req.body;
+    const data = await new AdminClass().rejectCourse(adminId, courseId, reason);
+    res.status(data.statusCode).json(data);
+  },
 };
 
 export default adminController;

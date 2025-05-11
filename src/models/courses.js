@@ -114,6 +114,28 @@ const courseSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
+
+    rejectionReason: {
+      type: String,
+      default: null,
+    },
+
+    reviewedBy: {
+      type: mongoose.Types.ObjectId,
+      ref: "0",
+      default: null,
+    },
+
+    reviewedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

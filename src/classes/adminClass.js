@@ -656,4 +656,56 @@ export default class AdminClass {
       return responses.failureResponse("Unable to delete admin account", 500);
     }
   }
+
+  async approveCourse(courseId, adminId) {
+    try {
+      const course = await Course.findById(courseId);
+      if (!course) return responses.failureResponse("Course not found", 404);
+      if (course.status === "approved") {
+        return responses.failureResponse("Course already approved", 400);
+      }
+
+      course.status = "approved";
+      course.isPublished = true;
+      course.reviewedBy = adminId;
+      course.reviewedAt = new Date();
+      course.rejectionReason = null;
+      await course.save();
+
+      return responses.successResponse(
+        "Course approved and published",
+        200,
+        course
+      );
+    } catch (error) {
+      console.error("Approval error:", error);
+      return responses.failureResponse("Failed to approve course", 500);
+    }
+  }
+
+  async rejectCourse(courseId, adminId, reason) {
+    try {
+      if (!reason || reason.trim() === "") {
+        return responses.failureResponse("Rejection reason is required", 400);
+      }
+
+      const course = await Course.findById(courseId);
+      if (!course) return responses.failureResponse("Course not found", 404);
+      if (course.status === "rejected") {
+        return responses.failureResponse("Course already rejected", 400);
+      }
+
+      course.status = "rejected";
+      course.isPublished = false;
+      course.rejectionReason = reason;
+      course.reviewedBy = adminId;
+      course.reviewedAt = new Date();
+      await course.save();
+
+      return responses.successResponse("Course rejected", 200, course);
+    } catch (error) {
+      console.error("Rejection error:", error);
+      return responses.failureResponse("Failed to reject course", 500);
+    }
+  }
 }
