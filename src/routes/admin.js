@@ -74,6 +74,20 @@ router.get(
   adminController.adminCoursesById
 );
 
+router.patch(
+  "/courses/:courseId/approve",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.approveCourse
+);
+
+router.get(
+  "/courses/:courseId/reject",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.rejectCourse
+);
+
 router.put(
   "/update-profile",
   authenticate,

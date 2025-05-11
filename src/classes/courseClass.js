@@ -23,18 +23,21 @@ export default class CourseClass {
       payload.tutorName = tutorName;
       payload.tutorEmail = tutor.email;
 
-      // If no isPublished status is sent, default to false (unpublished)
-      if (payload.isPublished === undefined) {
-        payload.isPublished = false;
+      if (payload.isPublished === true) {
+        return responses.failureResponse(
+          "Tutors can no longer publish directly. Your course will be reviewed by an admin.",
+          403
+        );
       }
+
+      // Force course to be draft and pending
+      payload.isPublished = false;
+      payload.status = "pending";
 
       // Create the new course
       const newCourse = await Course.create(payload);
 
-      // The success message would be based on the isPublished status
-      const message = newCourse.isPublished
-        ? "The Course has been published successfully."
-        : "The Course has been saved as a draft successfully.";
+      const message = "Your course has been submitted for review.";
 
       return responses.successResponse(message, 201, newCourse);
     } catch (error) {
@@ -47,57 +50,68 @@ export default class CourseClass {
   }
 
   // Endpoint to Publish an unpublished course
-  async updateAndPublishCourse(courseId, payload) {
-    /**
-     * This endpoint aims to allow a tutor edit their draft and still save it as a draft until they are ready to publish it and also edit their draft and publish it instantly.
-     */
+  async editDraft(courseId, payload) {
     try {
-      // Find the course by Id
+      // Fetch the course
       const course = await Course.findById(courseId);
 
       if (!course) {
         return responses.failureResponse("This course does not exist", 404);
       }
 
-      if (course.isPublished === true) {
+      // Disallow editing if course is already published
+      if (course.status === "approved" && course.isPublished) {
         return responses.failureResponse(
-          "This course has been published already",
+          "You cannot edit a published course",
           400
         );
       }
 
-      // Validate that required payload is not empty
+      // Prevent tutors from publishing directly
       if (payload.isPublished === true) {
-        if (
-          !(payload.title || course.title) ||
-          !(payload.description || course.description) ||
-          !(payload.lectures || course.lectures) ||
-          payload.lectures.length === 0
-        ) {
+        return responses.failureResponse(
+          "You cannot publish the course directly. An admin must review it.",
+          403
+        );
+      }
+
+      // Validate course content if it’s being resubmitted (status: pending)
+      const isResubmitting = course.status === "rejected";
+      if (isResubmitting) {
+        const hasMinimumContent =
+          payload.title ||
+          (course.title && payload.description) ||
+          (course.description &&
+            (payload.lectures?.length || course.lectures?.length));
+
+        if (!hasMinimumContent) {
           return responses.failureResponse(
-            "Your course must have a title, description, and at least one lecture before publishing. Do not leave Blank",
+            "To resubmit, the course must have a title, description, and at least one lecture.",
             400
           );
         }
+
+        // Set status back to pending and clear rejection reason
+        payload.status = "pending";
+        payload.rejectionReason = null;
       }
 
-      // Update the course
-      const updatedCourse = await Course.findByIdAndUpdate(
-        courseId,
-        { ...payload },
-        {
-          new: true,
-        }
-      );
+      // Ensure isPublished stays false
+      payload.isPublished = false;
 
-      const message = payload.isPublished
-        ? "The course has been published successfully"
-        : "Your draft is saved successfully";
+      // Update the course
+      const updatedCourse = await Course.findByIdAndUpdate(courseId, payload, {
+        new: true,
+      });
+
+      const message = isResubmitting
+        ? "Course edited and resubmitted for review."
+        : "Draft course updated successfully.";
 
       return responses.successResponse(message, 200, updatedCourse);
     } catch (error) {
-      console.error("There was an error", error);
-      return responses.failureResponse("Unable to publish this course", 500);
+      console.error("Error editing draft course:", error);
+      return responses.failureResponse("Unable to update the course", 500);
     }
   }
 

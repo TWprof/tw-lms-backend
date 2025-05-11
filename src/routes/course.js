@@ -19,8 +19,8 @@ router.get(
   progressController.continueWatching
 );
 
-// Route to update and publish a course
-router.put("/:courseId/publish", courseController.updateAndPublishCourse);
+// Route to edit courseDraft a course
+router.put("/:courseId/edit-course", courseController.editCourseDraft);
 
 // Route to update a course (What will you learn section)
 router.put("/:courseId/what-you-will-learn", courseController.updateCourse);

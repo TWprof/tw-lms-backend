@@ -8,8 +8,8 @@ const courseController = {
   },
 
   // Update and publish courses controller
-  updateAndPublishCourse: async (req, res) => {
-    const data = await new CourseClass().updateAndPublishCourse(
+  editCourseDraft: async (req, res) => {
+    const data = await new CourseClass().editDraft(
       req.params.courseId,
       req.body.payload
     );
