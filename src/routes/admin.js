@@ -81,7 +81,7 @@ router.patch(
   adminController.approveCourse
 );
 
-router.get(
+router.patch(
   "/courses/:courseId/reject",
   authenticate,
   authorizeAdminOnly,
