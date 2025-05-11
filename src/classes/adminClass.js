@@ -657,8 +657,13 @@ export default class AdminClass {
     }
   }
 
-  async approveCourse(courseId, adminId) {
+  async approveCourse(adminId, courseId) {
     try {
+      const admin = await Admin.findById(adminId);
+      if (!admin || admin.role !== "0") {
+        return responses.failureResponse("Unauthorized access", 403);
+      }
+
       const course = await Course.findById(courseId);
       if (!course) return responses.failureResponse("Course not found", 404);
       if (course.status === "approved") {
@@ -683,7 +688,7 @@ export default class AdminClass {
     }
   }
 
-  async rejectCourse(courseId, adminId, reason) {
+  async rejectCourse(adminId, courseId, reason) {
     try {
       if (!reason || reason.trim() === "") {
         return responses.failureResponse("Rejection reason is required", 400);

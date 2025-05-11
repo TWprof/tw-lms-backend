@@ -9,10 +9,9 @@ const courseController = {
 
   // Update and publish courses controller
   editCourseDraft: async (req, res) => {
-    const data = await new CourseClass().editDraft(
-      req.params.courseId,
-      req.body.payload
-    );
+    const courseId = req.params.courseId;
+    const payload = req.body;
+    const data = await new CourseClass().editDraft(courseId, payload);
     res.status(data.statusCode).json(data);
   },
 

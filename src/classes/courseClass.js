@@ -67,13 +67,13 @@ export default class CourseClass {
         );
       }
 
-      // Prevent tutors from publishing directly
-      if (payload.isPublished === true) {
-        return responses.failureResponse(
-          "You cannot publish the course directly. An admin must review it.",
-          403
-        );
-      }
+      // // Prevent tutors from publishing directly
+      // if (payload.isPublished === true) {
+      //   return responses.failureResponse(
+      //     "You cannot publish the course directly. An admin must review it.",
+      //     403
+      //   );
+      // }
 
       // Validate course content if it’s being resubmitted (status: pending)
       const isResubmitting = course.status === "rejected";
