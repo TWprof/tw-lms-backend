@@ -18,26 +18,34 @@ export default class CourseClass {
         );
       }
 
-      // display the tutor name and email
+      // Display the tutor name and email
       const tutorName = `${tutor.firstName} ${tutor.lastName}`;
       payload.tutorName = tutorName;
       payload.tutorEmail = tutor.email;
 
       if (payload.isPublished === true) {
         return responses.failureResponse(
-          "Tutors can no longer publish directly. Your course will be reviewed by an admin.",
+          "Tutors can no longer publish directly. Your course MUST be reviewed by an admin.",
           403
         );
       }
 
-      // Force course to be draft and pending
-      payload.isPublished = false;
-      payload.status = "pending";
+      // Determine if course is a draft or submitted for review
+      const isSubmitting = payload.submitForReview === true;
+
+      payload.status = isSubmitting ? "pending" : "draft";
+      payload.isPublished = false; // Always false at this point
+      payload.rejectionReason = null;
+
+      // Clean up unnecessary fields
+      delete payload.submitForReview;
 
       // Create the new course
       const newCourse = await Course.create(payload);
 
-      const message = "Your course has been submitted for review.";
+      const message = isSubmitting
+        ? "Your course has been submitted for review."
+        : "Course saved as draft.";
 
       return responses.successResponse(message, 201, newCourse);
     } catch (error) {
@@ -49,17 +57,15 @@ export default class CourseClass {
     }
   }
 
-  // Endpoint to Publish an unpublished course
+  // Endpoint to Edit draft or Rejected course
   async editDraft(courseId, payload) {
     try {
-      // Fetch the course
       const course = await Course.findById(courseId);
-
       if (!course) {
         return responses.failureResponse("This course does not exist", 404);
       }
 
-      // Disallow editing if course is already published
+      // Prevent editing of already published courses
       if (course.status === "approved" && course.isPublished) {
         return responses.failureResponse(
           "You cannot edit a published course",
@@ -67,45 +73,51 @@ export default class CourseClass {
         );
       }
 
-      // // Prevent tutors from publishing directly
-      // if (payload.isPublished === true) {
-      //   return responses.failureResponse(
-      //     "You cannot publish the course directly. An admin must review it.",
-      //     403
-      //   );
-      // }
+      const submitForReview = payload.submitForReview === true;
+      delete payload.submitForReview; // Don’t store it in DB
 
-      // Validate course content if it’s being resubmitted (status: pending)
-      const isResubmitting = course.status === "rejected";
-      if (isResubmitting) {
+      // Prevent direct publishing
+      if (payload.isPublished === true) {
+        return responses.failureResponse(
+          "Tutors cannot publish courses directly. It must be reviewed by an admin.",
+          403
+        );
+      }
+
+      // Decide flow based on submission intent
+      if (submitForReview) {
+        // Whether it's from draft or rejected, validate before submitting
         const hasMinimumContent =
           payload.title ||
-          (course.title && payload.description) ||
-          (course.description &&
-            (payload.lectures?.length || course.lectures?.length));
+          course.title ||
+          ((payload.description || course.description) &&
+            ((payload.lectures && payload.lectures.length > 0) ||
+              (course.lectures && course.lectures.length > 0)));
 
         if (!hasMinimumContent) {
           return responses.failureResponse(
-            "To resubmit, the course must have a title, description, and at least one lecture.",
+            "To submit for review, the course must have a title, description, and at least one lecture.",
             400
           );
         }
 
-        // Set status back to pending and clear rejection reason
+        // Set course to pending
         payload.status = "pending";
         payload.rejectionReason = null;
+      } else {
+        // Save as draft
+        payload.status = "draft";
       }
 
-      // Ensure isPublished stays false
+      // Force isPublished to false
       payload.isPublished = false;
 
-      // Update the course
       const updatedCourse = await Course.findByIdAndUpdate(courseId, payload, {
         new: true,
       });
 
-      const message = isResubmitting
-        ? "Course edited and resubmitted for review."
+      const message = submitForReview
+        ? "Course edited and submitted for review."
         : "Draft course updated successfully.";
 
       return responses.successResponse(message, 200, updatedCourse);
