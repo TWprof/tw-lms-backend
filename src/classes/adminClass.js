@@ -231,6 +231,7 @@ export default class AdminClass {
         recentActivities,
         topCourses,
         topTutors,
+        recentTransactions: [],
       });
     } catch (error) {
       console.error("Error fetching overview:", error);
