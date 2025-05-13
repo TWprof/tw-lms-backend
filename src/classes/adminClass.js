@@ -489,18 +489,24 @@ export default class AdminClass {
       const limit = parseInt(query.limit, 10) || 10;
       const skip = (page - 1) * limit;
 
-      // Remove pagination parameters from the query object
+      // Remove pagination params from query to avoid filtering errors
       delete query.page;
       delete query.limit;
 
-      const courses = await Course.find(query)
-        .select("title tutorName price isPublished createdAt")
+      // Filter: only courses that are NOT drafts
+      const filter = {
+        ...query,
+        status: { $in: ["pending", "approved", "rejected"] },
+      };
+
+      const courses = await Course.find(filter)
+        .select("title tutorName price isPublished status createdAt")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean();
 
-      const totalCounts = await Course.countDocuments(query);
+      const totalCounts = await Course.countDocuments(filter);
 
       return responses.successResponse(
         "Successfully fetched all courses",
@@ -526,13 +532,19 @@ export default class AdminClass {
         return responses.failureResponse("Unauthorized access", 403);
       }
 
-      // Fetch the course details
-      const course = await Course.findById(courseId).select(
-        "title description thumbnailURL price isPublished createdAt tutorName tutorEmail rating"
+      // Fetch the course (excluding drafts)
+      const course = await Course.findOne({
+        _id: courseId,
+        status: { $in: ["pending", "approved", "rejected"] },
+      }).select(
+        "title description thumbnailURL price isPublished createdAt tutorName tutorEmail rating status"
       );
 
       if (!course) {
-        return responses.failureResponse("Course not found", 404);
+        return responses.failureResponse(
+          "Course not found or not accessible",
+          404
+        );
       }
 
       return responses.successResponse(
