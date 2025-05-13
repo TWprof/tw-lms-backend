@@ -54,7 +54,6 @@ export async function getBarChartData(year = new Date().getFullYear()) {
       $group: {
         _id: {
           month: { $month: "$createdAt" },
-          year: { $year: "$createdAt" },
         },
         totalAmount: { $sum: "$amount" },
       },
@@ -62,21 +61,31 @@ export async function getBarChartData(year = new Date().getFullYear()) {
     { $sort: { "_id.month": 1 } },
   ]);
 
-  const result = raw.map(({ _id, totalAmount }) => {
-    const date = new Date(_id.year, _id.month - 1);
+  // Create a default map of all 12 months
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const date = new Date(year, i);
     const monthName = date.toLocaleString("default", { month: "short" });
-
-    const platformCharge = +(totalAmount * 0.1).toFixed(2);
-    const tutorRevenue = +(totalAmount * 0.9).toFixed(2);
-
     return {
       month: monthName,
+      tutorRevenue: 0,
+      platformCharge: 0,
+    };
+  });
+
+  // Fill in values from aggregation
+  raw.forEach(({ _id, totalAmount }) => {
+    const monthIndex = _id.month - 1;
+    const tutorRevenue = +(totalAmount * 0.9).toFixed(2);
+    const platformCharge = +(totalAmount * 0.1).toFixed(2);
+
+    months[monthIndex] = {
+      ...months[monthIndex],
       tutorRevenue,
       platformCharge,
     };
   });
 
-  return result;
+  return months;
 }
 
 export async function getRecentActivities() {
