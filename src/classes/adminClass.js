@@ -308,6 +308,8 @@ export default class AdminClass {
         return responses.failureResponse("Unauthorized access", 403);
       }
 
+      const dateFilter = getDateFilter(filter);
+
       const [
         totalTutors,
         newTutors,
@@ -319,18 +321,17 @@ export default class AdminClass {
         tutorList,
       ] = await Promise.all([
         Admin.countDocuments({ role: "1" }),
-        getNewTutors(filter),
+        getNewTutors(dateFilter),
         getAverageTutorRating(),
-        getTopTutors(3),
-        getTopCourses(5),
-        getSalesTrend(filter),
-        getTotalRevenue(),
+        getTopTutors(dateFilter),
+        getTopCourses(dateFilter),
+        getSalesTrend(dateFilter),
+        getTotalRevenue(dateFilter),
         Admin.find({ role: "1" })
           .sort({ createdAt: -1 })
           .select("-password -__v"),
       ]);
 
-      // Calculate averages
       const averageRevenue =
         totalTutors > 0 ? (totalRevenue / totalTutors).toFixed(2) : 0;
 
