@@ -239,7 +239,7 @@ export default class AdminClass {
     }
   }
 
-  async adminStudents(adminId, filter = "all", page = 1, limit = 10) {
+  async adminStudents(adminId, filter = "all") {
     try {
       const admin = await Admin.findById(adminId);
       if (!admin || admin.role !== "0") {
@@ -255,7 +255,7 @@ export default class AdminClass {
         reviews,
         timeStats,
       ] = await Promise.all([
-        getTotalStudents(),
+        getTotalStudents(dateFilter),
         getPurchasedCourses(dateFilter),
         getCompletedCourses(dateFilter),
         getReviews(dateFilter),
@@ -265,7 +265,7 @@ export default class AdminClass {
       const abandonedCourses = purchasedCourses.filter((c) => !c.isCompleted);
 
       const { students: enrolledStudents, total: enrolledStudentsCount } =
-        await getEnrolledStudents(purchasedCourses, page, limit);
+        await getEnrolledStudents(purchasedCourses);
 
       const completionRate = calculateCompletionRate(
         purchasedCourses,
@@ -293,6 +293,7 @@ export default class AdminClass {
         enrolledStudentsCount,
         reviews: mappedReviews,
         timeStats,
+        filter,
       });
     } catch (error) {
       console.error("There was an error", error);
@@ -300,7 +301,7 @@ export default class AdminClass {
     }
   }
 
-  async adminTutorAnalytics(adminId, timeframe = "month") {
+  async adminTutorAnalytics(adminId, filter = "all") {
     try {
       const admin = await Admin.findById(adminId);
       if (!admin || admin.role !== "0") {
@@ -318,11 +319,11 @@ export default class AdminClass {
         tutorList,
       ] = await Promise.all([
         Admin.countDocuments({ role: "1" }),
-        getNewTutors(timeframe),
+        getNewTutors(filter),
         getAverageTutorRating(),
         getTopTutors(3),
         getTopCourses(5),
-        getSalesTrend(timeframe),
+        getSalesTrend(filter),
         getTotalRevenue(),
         Admin.find({ role: "1" })
           .sort({ createdAt: -1 })
@@ -339,6 +340,7 @@ export default class AdminClass {
         topCourses,
         salesTrend,
         tutorList,
+        filter,
       });
     } catch (error) {
       console.error("Analytics error:", error);
@@ -479,6 +481,7 @@ export default class AdminClass {
       return responses.failureResponse("Unable to fetch transaction", 500);
     }
   }
+
   async fetchCourses(adminId, query = {}) {
     try {
       const admin = await Admin.findById(adminId);

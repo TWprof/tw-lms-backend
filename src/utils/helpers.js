@@ -1,4 +1,13 @@
-import { startOfWeek, startOfMonth, startOfYear } from "date-fns";
+import {
+  startOfDay,
+  endOfDay,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  startOfYear,
+  endOfYear,
+} from "date-fns";
 import Admin from "../models/admin.js";
 import Student from "../models/student.js";
 import PurchasedCourse from "../models/purchasedCourse.js";
@@ -6,6 +15,52 @@ import Course from "../models/courses.js";
 import Payment from "../models/payment.js";
 import Comment from "../models/comments.js";
 import Review from "../models/review.js";
+
+export function getDateFilter(filter) {
+  const now = new Date();
+
+  let startDate, endDate;
+
+  switch (filter?.toLowerCase()) {
+    case "day":
+      startDate = startOfDay(now);
+      endDate = endOfDay(now);
+      break;
+
+    case "week":
+      startDate = startOfWeek(now, { weekStartsOn: 1 }); // Monday as start of week
+      endDate = endOfWeek(now, { weekStartsOn: 1 });
+      break;
+
+    case "month":
+      startDate = startOfMonth(now);
+      endDate = endOfMonth(now);
+      break;
+
+    case "year":
+      startDate = startOfYear(now);
+      endDate = endOfYear(now);
+      break;
+
+    default:
+      // Check if it's a month number like "1" for Jan or "12" for Dec
+      const parsedMonth = parseInt(filter);
+      if (!isNaN(parsedMonth) && parsedMonth >= 1 && parsedMonth <= 12) {
+        const year = now.getFullYear();
+        startDate = new Date(year, parsedMonth - 1, 1);
+        endDate = endOfMonth(startDate);
+      } else {
+        return {}; // No filtering (e.g., "all")
+      }
+  }
+
+  return {
+    createdAt: {
+      $gte: startDate,
+      $lte: endDate,
+    },
+  };
+}
 
 export async function getCoreMetrics() {
   const [
@@ -126,8 +181,9 @@ export async function getRecentActivities() {
     .slice(0, 5);
 }
 
-export async function getTopCourses() {
+export async function getTopCourses(dateFilter = {}) {
   const topCourses = await PurchasedCourse.aggregate([
+    { $match: dateFilter },
     {
       $group: {
         _id: "$courseId",
@@ -242,37 +298,22 @@ export async function getTopTutors() {
   }
 }
 
-export function getDateFilter(filter) {
-  const now = new Date();
-
-  if (filter === "week") {
-    return { createdAt: { $gte: startOfWeek(now) } };
-  } else if (filter === "month") {
-    return { createdAt: { $gte: startOfMonth(now) } };
-  } else if (filter === "year") {
-    return { createdAt: { $gte: startOfYear(now) } };
-  } else {
-    return {}; // no filter for "all"
-  }
+export async function getTotalStudents(dateFilter = {}) {
+  return Student.countDocuments({ deletedAt: null, ...dateFilter });
 }
 
-export async function getTotalStudents() {
-  return Student.countDocuments({ deletedAt: null });
+export async function getPurchasedCourses(dateFilter = {}) {
+  return PurchasedCourse.find({ ...dateFilter }).populate("courseId studentId");
 }
 
-export async function getPurchasedCourses(dateFilter) {
-  return PurchasedCourse.find(dateFilter).populate("studentId courseId");
+export async function getCompletedCourses(dateFilter = {}) {
+  return PurchasedCourse.find({ isCompleted: 1, ...dateFilter });
 }
 
-export async function getCompletedCourses(dateFilter) {
-  return PurchasedCourse.find({
-    isCompleted: true,
-    ...dateFilter,
-  });
-}
-
-export async function getReviews(dateFilter) {
-  return Review.find(dateFilter).populate("studentId courseId");
+export async function getReviews(dateFilter = {}) {
+  return Review.find({ ...dateFilter })
+    .populate("studentId", "firstName lastName")
+    .populate("courseId", "title");
 }
 
 export function calculateCompletionRate(purchasedCourses, completedCourses) {
@@ -315,8 +356,7 @@ export async function getEnrolledStudents(
 }
 
 export async function getTimeStatistics(dateFilter = {}) {
-  const matchStage =
-    Object.keys(dateFilter).length > 0 ? { updatedAt: dateFilter } : {};
+  const matchStage = Object.keys(dateFilter).length > 0 ? dateFilter : {};
 
   const stats = await PurchasedCourse.aggregate([
     { $match: matchStage },
@@ -333,26 +373,42 @@ export async function getTimeStatistics(dateFilter = {}) {
         _id: 0,
       },
     },
-    { $sort: { dayOfWeek: 1 } },
   ]);
 
-  return stats;
-}
+  // Mapping from day number (MongoDB's $dayOfWeek) to day name
+  const dayNameMap = {
+    1: "Sun",
+    2: "Mon",
+    3: "Tue",
+    4: "Wed",
+    5: "Thu",
+    6: "Fri",
+    7: "Sat",
+  };
 
-/**
- * Get new tutors count for a timeframe (reuses getDateFilter)
- */
-export async function getNewTutors(timeframe) {
-  return Admin.countDocuments({
-    role: "1",
-    ...getDateFilter(timeframe),
+  // Initialize all days with 0
+  const fullWeek = Object.entries(dayNameMap).map(([dayNum, dayName]) => ({
+    dayOfWeek: dayName,
+    totalMinutesSpent: 0,
+  }));
+
+  // Fill in real values where available
+  stats.forEach(({ dayOfWeek, totalMinutesSpent }) => {
+    const index = fullWeek.findIndex(
+      (d) => d.dayOfWeek === dayNameMap[dayOfWeek]
+    );
+    if (index !== -1) {
+      fullWeek[index].totalMinutesSpent = totalMinutesSpent;
+    }
   });
+
+  return fullWeek;
 }
 
-/**
- * Get average tutor rating by courses
- * since tutors do not get individual ratings, just their courses (simple aggregation)
- */
+export async function getNewTutors(filter) {
+  const dateFilter = getDateFilter(filter);
+  return Admin.countDocuments({ role: "1", ...dateFilter });
+}
 
 export async function getAverageTutorRating() {
   const result = await Course.aggregate([
@@ -374,42 +430,60 @@ export async function getAverageTutorRating() {
   return result[0]?.avgRating?.toFixed(1) || 0;
 }
 
-/**
- * Enhanced sales trend with tutor growth (modifies getBarChartData)
- */
 export async function getSalesTrend(filter = "month") {
+  let groupId;
+  let sortStage;
+
+  if (filter === "year") {
+    groupId = { year: { $year: "$createdAt" } };
+    sortStage = { "_id.year": 1 };
+  } else if (filter === "week") {
+    groupId = {
+      year: { $year: "$createdAt" },
+      week: { $isoWeek: "$createdAt" },
+    };
+    sortStage = { "_id.year": 1, "_id.week": 1 };
+  } else {
+    // Default to "month"
+    groupId = {
+      year: { $year: "$createdAt" },
+      month: { $month: "$createdAt" },
+    };
+    sortStage = { "_id.year": 1, "_id.month": 1 };
+  }
+
   const payments = await Payment.aggregate([
     { $match: { status: "success" } },
     {
       $group: {
-        _id: {
-          month: { $month: "$createdAt" },
-          year: { $year: "$createdAt" },
-        },
+        _id: groupId,
         totalAmount: { $sum: "$amount" },
       },
     },
-    { $sort: { "_id.year": 1, "_id.month": 1 } },
+    { $sort: sortStage },
   ]);
 
-  const monthlyTotals = {};
+  const trend = payments.map((item) => {
+    const total = item.totalAmount;
+    ``;
+    const platformCharge = +(total * 0.1).toFixed(2);
+    const tutorRevenue = +(total * 0.9).toFixed(2);
 
-  // Aggregate totals per month
-  payments.forEach((item) => {
-    if (!item._id) return;
-    const { month } = item._id;
-    monthlyTotals[month] = item.totalAmount;
-  });
-
-  // Build array for all 12 months
-  const trend = Array.from({ length: 12 }, (_, i) => {
-    const monthIndex = i + 1;
-    const amount = monthlyTotals[monthIndex] || 0;
-    const platformCharge = +(amount * 0.1).toFixed(2);
-    const tutorRevenue = +(amount * 0.9).toFixed(2);
+    let label;
+    if (filter === "year") {
+      label = `${item._id.year}`;
+    } else if (filter === "week") {
+      label = `W${item._id.week} ${item._id.year}`;
+    } else {
+      const date = new Date(item._id.year, item._id.month - 1);
+      label = date.toLocaleString("default", {
+        month: "short",
+        year: "numeric",
+      }); // e.g., "Mar 2025"
+    }
 
     return {
-      month: new Date(0, i).toLocaleString("default", { month: "short" }),
+      label,
       tutorRevenue,
       platformCharge,
     };
