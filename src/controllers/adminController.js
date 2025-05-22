@@ -44,8 +44,8 @@ const adminController = {
 
   adminTutors: async (req, res) => {
     const adminId = req.user._id;
-    const timeframe = req.query.filter || "all";
-    const data = await new AdminClass().adminTutorAnalytics(adminId, timeframe);
+    const filter = req.query.filter || "all";
+    const data = await new AdminClass().adminTutorAnalytics(adminId, filter);
     res.status(data.statusCode).json(data);
   },
 
