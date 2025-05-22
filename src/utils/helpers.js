@@ -405,8 +405,7 @@ export async function getTimeStatistics(dateFilter = {}) {
   return fullWeek;
 }
 
-export async function getNewTutors(filter) {
-  const dateFilter = getDateFilter(filter);
+export async function getNewTutors(dateFilter = {}) {
   return Admin.countDocuments({ role: "1", ...dateFilter });
 }
 
