@@ -579,7 +579,7 @@ export default class AdminClass {
       }
 
       // Fetch the course with appropriate fields
-      const course = await Course.findById(query);
+      const course = await Course.findOne(query);
 
       if (!course) {
         return responses.failureResponse(
@@ -588,11 +588,9 @@ export default class AdminClass {
         );
       }
 
-      return responses.successResponse(
-        "Course fetched successfully",
-        200,
-        course
-      );
+      return responses.successResponse("Course fetched successfully", 200, {
+        courseId: course,
+      });
     } catch (error) {
       console.error("Error fetching course:", error);
       return responses.failureResponse("Unable to fetch course", 500);
