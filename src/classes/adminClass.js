@@ -264,31 +264,14 @@ export default class AdminClass {
         getTimeStatistics(dateFilter),
       ]);
 
-      const abandonedCourses = purchasedCourses.filter((c) => !c.isCompleted);
-
-      const { students: enrolledStudents, total: enrolledStudentsCount } =
-        await getEnrolledStudents(purchasedCourses);
-
-      const completionRate = calculateCompletionRate(
-        purchasedCourses,
-        completedCourses
-      );
-
-      const mappedReviews = reviews.map((r) => ({
-        student:
-          `${r.studentId?.firstName || ""} ${
-            r.studentId?.lastName || ""
-          }`.trim() || "Unknown",
-        course: r.courseId?.title || "Unknown",
-        rating: r.rating,
-        reviewText: r.reviewText,
-        createdAt: r.createdAt,
-      }));
-
+      // Create a map of enrolled student IDs
       const enrolledStudentIds = new Set(
-        purchasedCourses.map((pc) => pc.studentId.toString())
+        purchasedCourses
+          .map((pc) => pc.studentId?._id?.toString()) // Access populated student _id
+          .filter((id) => id)
       );
 
+      // Map students with accurate enrollment status
       const studentsWithStatus = allStudents.map((student) => ({
         _id: student._id,
         fullName: `${student.firstName || ""} ${student.lastName || ""}`.trim(),
@@ -297,14 +280,32 @@ export default class AdminClass {
         createdAt: student.createdAt,
       }));
 
+      // Rest of the metrics
+      const abandonedCourses = purchasedCourses.filter((c) => !c.isCompleted);
+      const completionRate = calculateCompletionRate(
+        purchasedCourses,
+        completedCourses
+      );
+
+      const mappedReviews = reviews.map((r) => ({
+        student: r.studentId
+          ? `${r.studentId.firstName || ""} ${
+              r.studentId.lastName || ""
+            }`.trim()
+          : "Unknown Student",
+        course: r.courseId?.title || "Deleted Course",
+        rating: r.rating,
+        reviewText: r.reviewText,
+        createdAt: r.createdAt,
+      }));
+
       return responses.successResponse("Student stats fetched", 200, {
         totalStudents: allStudents.length,
         totalPurchases: purchasedCourses.length,
         completedCourses: completedCourses.length,
         abandonedCourses: abandonedCourses.length,
         completionRate,
-        enrolledStudents,
-        enrolledStudentsCount,
+        enrolledStudentsCount: enrolledStudentIds.size,
         reviews: mappedReviews,
         timeStats,
         students: studentsWithStatus,
@@ -757,7 +758,6 @@ export default class AdminClass {
     }
   }
 
-  // controller method
   async getStudentById(adminId, studentId) {
     try {
       const admin = await Admin.findById(adminId);
