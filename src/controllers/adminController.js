@@ -80,11 +80,10 @@ const adminController = {
   fetchCoursesById: async (req, res) => {
     const userId = req.user._id;
     const role = req.user.role;
-    const courseId = req.params.courseId;
     const data = await new AdminClass().fetchCoursesById(
       userId,
       role,
-      courseId
+      req.params.courseId
     );
     res.status(data.statusCode).json(data);
   },
