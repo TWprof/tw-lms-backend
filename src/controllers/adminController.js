@@ -78,15 +78,10 @@ const adminController = {
     res.status(data.statusCode).json(data);
   },
 
-  fetchCoursesById: async (req, res) => {
-    const userId = req.user._id;
-    const role = req.user.role;
+  adminCoursesById: async (req, res) => {
+    const adminId = req.user._id;
     const courseId = req.params.courseId;
-    const data = await new AdminClass().fetchCoursesById(
-      userId,
-      role,
-      courseId
-    );
+    const data = await new AdminClass().fetchCoursesById(adminId, courseId);
     res.status(data.statusCode).json(data);
   },
 
