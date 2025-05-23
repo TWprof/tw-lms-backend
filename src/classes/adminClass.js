@@ -579,7 +579,7 @@ export default class AdminClass {
       }
 
       // Fetch the course with appropriate fields
-      const course = await Course.findOne(query);
+      const course = await Course.findById(query);
 
       if (!course) {
         return responses.failureResponse(
