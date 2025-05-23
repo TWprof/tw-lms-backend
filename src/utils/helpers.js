@@ -303,7 +303,12 @@ export async function getTotalStudents(dateFilter = {}) {
 }
 
 export async function getPurchasedCourses(dateFilter = {}) {
-  return PurchasedCourse.find({ ...dateFilter }).populate("courseId studentId");
+  return PurchasedCourse.find({ ...dateFilter })
+    .populate({
+      path: "studentId",
+      select: "_id",
+    })
+    .lean();
 }
 
 export async function getCompletedCourses(dateFilter = {}) {
