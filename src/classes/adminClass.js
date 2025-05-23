@@ -765,7 +765,9 @@ export default class AdminClass {
         return responses.failureResponse("Unauthorized access", 403);
       }
 
-      const student = await Student.findById(studentId).select("-password"); // exclude sensitive fields
+      const student = await Student.findById(studentId).select(
+        "-password -privacySettings"
+      ); // exclude sensitive fields
       if (!student) {
         return responses.failureResponse("Student not found", 404);
       }
