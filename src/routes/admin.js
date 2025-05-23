@@ -108,4 +108,18 @@ router.delete(
   authorizeAdminOnly,
   adminController.deleteAdmin
 );
+
+router.get(
+  "/all-students",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.allStudents
+);
+
+router.get(
+  "/all-students/:studentId",
+  authenticate,
+  authorizeAdminOnly,
+  adminController.studentById
+);
 export default router;

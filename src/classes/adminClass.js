@@ -1,4 +1,6 @@
 import Admin from "../models/admin.js";
+import Student from "../models/student.js";
+import PurchasedCourse from "../models/purchasedCourse.js";
 import {
   getCoreMetrics,
   getTotalRevenue,
@@ -249,13 +251,13 @@ export default class AdminClass {
       const dateFilter = getDateFilter(filter);
 
       const [
-        totalStudents,
+        allStudents,
         purchasedCourses,
         completedCourses,
         reviews,
         timeStats,
       ] = await Promise.all([
-        getTotalStudents(dateFilter),
+        Student.find(dateFilter).lean(),
         getPurchasedCourses(dateFilter),
         getCompletedCourses(dateFilter),
         getReviews(dateFilter),
@@ -283,8 +285,20 @@ export default class AdminClass {
         createdAt: r.createdAt,
       }));
 
+      const enrolledStudentIds = new Set(
+        purchasedCourses.map((pc) => pc.studentId.toString())
+      );
+
+      const studentsWithStatus = allStudents.map((student) => ({
+        _id: student._id,
+        fullName: `${student.firstName || ""} ${student.lastName || ""}`.trim(),
+        email: student.email,
+        enrolled: enrolledStudentIds.has(student._id.toString()),
+        createdAt: student.createdAt,
+      }));
+
       return responses.successResponse("Student stats fetched", 200, {
-        totalStudents,
+        totalStudents: allStudents.length,
         totalPurchases: purchasedCourses.length,
         completedCourses: completedCourses.length,
         abandonedCourses: abandonedCourses.length,
@@ -293,6 +307,7 @@ export default class AdminClass {
         enrolledStudentsCount,
         reviews: mappedReviews,
         timeStats,
+        students: studentsWithStatus,
         filter,
       });
     } catch (error) {
@@ -460,6 +475,16 @@ export default class AdminClass {
         return responses.failureResponse("Transaction not found", 404);
       }
 
+      // Find purchased course linked to this transaction
+      const purchasedCourse = await PurchasedCourse.findOne({
+        paymentId: transactionId,
+      }).populate("courseId", "title");
+
+      const courseTitle =
+        purchasedCourse && purchasedCourse.courseId
+          ? purchasedCourse.courseId.title
+          : "Course not found or may have been deleted from the database";
+
       const result = {
         studentName: transaction.studentId
           ? `${transaction.studentId.firstName} ${transaction.studentId.lastName}`
@@ -470,6 +495,7 @@ export default class AdminClass {
         reference: transaction.reference,
         channel: transaction.channel,
         currency: transaction.currency,
+        course: courseTitle,
       };
 
       return responses.successResponse(
@@ -728,6 +754,53 @@ export default class AdminClass {
     } catch (error) {
       console.error("Rejection error:", error);
       return responses.failureResponse("Failed to reject course", 500);
+    }
+  }
+
+  // controller method
+  async getStudentById(adminId, studentId) {
+    try {
+      const admin = await Admin.findById(adminId);
+      if (!admin || admin.role !== "0") {
+        return responses.failureResponse("Unauthorized access", 403);
+      }
+
+      const student = await Student.findById(studentId).select("-password"); // exclude sensitive fields
+      if (!student) {
+        return responses.failureResponse("Student not found", 404);
+      }
+
+      return responses.successResponse(
+        "Student fetched successfully",
+        200,
+        student
+      );
+    } catch (error) {
+      console.error("There was an error", error);
+      return responses.failureResponse("Unable to fetch this Student", 500);
+    }
+  }
+
+  // controller method
+  async getAllStudents(adminId) {
+    try {
+      const admin = await Admin.findById(adminId);
+      if (!admin || admin.role !== "0") {
+        return responses.failureResponse("Unauthorized access", 403);
+      }
+
+      const students = await Student.find({ deletedAt: null }).select(
+        "-password"
+      );
+
+      return responses.successResponse(
+        "All students fetched successfully",
+        200,
+        students
+      );
+    } catch (error) {
+      console.error("There was an error", error);
+      return responses.failureResponse("Unable to fetch students", 500);
     }
   }
 }
