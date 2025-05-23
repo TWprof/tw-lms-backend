@@ -556,19 +556,30 @@ export default class AdminClass {
     }
   }
 
-  async fetchCoursesById(adminId, courseId) {
+  async fetchCoursesById(userId, role, courseId) {
     try {
-      // Verify admin privileges
-      const admin = await Admin.findById(adminId);
-      if (!admin || admin.role !== "0") {
+      // Verify admin or tutor privileges
+      const isAdmin = role === "0";
+      const isTutor = role === "1";
+
+      if (!isAdmin && !isTutor) {
         return responses.failureResponse("Unauthorized access", 403);
       }
 
-      // Fetch the course (excluding drafts)
-      const course = await Course.findOne({
-        _id: courseId,
-        status: { $in: ["pending", "approved", "rejected"] },
-      }).select(
+      // Base query conditions
+      const query = { _id: courseId };
+
+      // For tutors, they can only see their own courses
+      if (isTutor) {
+        query.tutor = userId;
+      }
+      // Admins can see all non-draft courses
+      else {
+        query.status = { $in: ["pending", "approved", "rejected"] };
+      }
+
+      // Fetch the course with appropriate fields
+      const course = await Course.findOne(query).select(
         "title description thumbnailURL price isPublished createdAt tutorName tutorEmail rating status"
       );
 

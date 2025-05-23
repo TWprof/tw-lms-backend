@@ -44,3 +44,12 @@ export const authorizeAdminOnly = (req, res, next) => {
   }
   next();
 };
+
+export const authorizeAdminOrTutor = (req, res, next) => {
+  if (!req.user || (req.role !== "0" && req.role !== "1")) {
+    return res
+      .status(403)
+      .json({ message: "Access denied. Admins or tutors only." });
+  }
+  next();
+};
