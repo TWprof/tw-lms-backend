@@ -1,6 +1,9 @@
 import { Router } from "express";
 import adminController from "../controllers/adminController.js";
-import { authorizeAdminOnly } from "../middleware/auth.js";
+import {
+  authorizeAdminOnly,
+  authorizeAdminOrTutor,
+} from "../middleware/auth.js";
 import authenticate from "../middleware/auth.js";
 const router = Router();
 
@@ -70,8 +73,8 @@ router.get(
 router.get(
   "/courses/:courseId",
   authenticate,
-  authorizeAdminOnly,
-  adminController.adminCoursesById
+  authorizeAdminOrTutor,
+  adminController.fetchCoursesById
 );
 
 router.patch(
