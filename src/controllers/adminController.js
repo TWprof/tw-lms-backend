@@ -120,6 +120,18 @@ const adminController = {
     const data = await new AdminClass().rejectCourse(adminId, courseId, reason);
     res.status(data.statusCode).json(data);
   },
+  allStudents: async (req, res) => {
+    const adminId = req.user._id;
+    const data = await new AdminClass().getAllStudents(adminId);
+    res.status(data.statusCode).json(data);
+  },
+
+  studentById: async (req, res) => {
+    const adminId = req.user._id;
+    const studentId = req.params.studentId;
+    const data = await new AdminClass().getStudentById(adminId, studentId);
+    res.status(data.statusCode).json(data);
+  },
 };
 
 export default adminController;
