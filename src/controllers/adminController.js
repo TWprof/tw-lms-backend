@@ -1,5 +1,4 @@
 import AdminClass from "../classes/adminClass.js";
-import Admin from "../models/admin.js";
 
 const adminController = {
   createAdmin: async (req, res) => {

@@ -579,9 +579,7 @@ export default class AdminClass {
       }
 
       // Fetch the course with appropriate fields
-      const course = await Course.findOne(query).select(
-        "title description thumbnailURL price isPublished createdAt tutorName tutorEmail rating status"
-      );
+      const course = await Course.findOne(query);
 
       if (!course) {
         return responses.failureResponse(
