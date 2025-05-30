@@ -182,16 +182,19 @@ export async function getRecentActivities() {
 }
 
 export async function getTopCourses(dateFilter = {}) {
-  const topCourses = await PurchasedCourse.aggregate([
+  const result = await PurchasedCourse.aggregate([
+    // 1. Filter purchases by date (if provided)
     { $match: dateFilter },
+
+    // 2. Group by courseId to count purchases
     {
       $group: {
         _id: "$courseId",
-        count: { $sum: 1 },
+        purchaseCount: { $sum: 1 },
       },
     },
-    { $sort: { count: -1 } },
-    { $limit: 3 },
+
+    // 3. Fetch course details
     {
       $lookup: {
         from: "courses",
@@ -200,24 +203,75 @@ export async function getTopCourses(dateFilter = {}) {
         as: "courseDetails",
       },
     },
+
+    // 4. Keep courses even if lookup fails (flatten array)
+    { $unwind: { path: "$courseDetails", preserveNullAndEmptyArrays: true } },
+
+    // 5. Calculate total purchases across all courses
     {
-      $unwind: "$courseDetails", // Flatten array
-    },
-    {
-      $project: {
-        _id: 0, // hide the aggregation _id
-        courseId: "$courseDetails._id",
-        title: "$courseDetails.title",
-        price: "$courseDetails.price",
-        thumbnailURL: "$courseDetails.thumbnailURL",
-        tutorName: "$courseDetails.tutorName",
-        tutorEmail: "$courseDetails.tutorEmail",
-        purchaseCount: "$count", // from aggregation
+      $group: {
+        _id: null,
+        totalPurchases: { $sum: "$purchaseCount" },
+        courses: { $push: "$$ROOT" }, // Preserve all courses
       },
     },
+
+    // 6. Add percentage and format output
+    {
+      $project: {
+        _id: 0,
+        courses: {
+          $map: {
+            input: "$courses",
+            as: "course",
+            in: {
+              courseId: "$$course._id",
+              // Fallback to "Unknown Course" if details missing
+              title: {
+                $ifNull: ["$$course.courseDetails.title", "Unknown Course"],
+              },
+              price: { $ifNull: ["$$course.courseDetails.price", 0] },
+              thumbnailURL: {
+                $ifNull: ["$$course.courseDetails.thumbnailURL", null],
+              },
+              tutorName: {
+                $ifNull: ["$$course.courseDetails.tutorName", "Unknown Tutor"],
+              },
+              purchaseCount: "$$course.purchaseCount",
+              // Round percentage to 2 decimal places
+              purchasePercentage: {
+                $round: [
+                  {
+                    $multiply: [
+                      {
+                        $divide: ["$$course.purchaseCount", "$totalPurchases"],
+                      },
+                      100,
+                    ],
+                  },
+                  2,
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // 7. Flatten the courses array
+    { $unwind: "$courses" },
+
+    // 8. Replace root to clean up structure
+    { $replaceRoot: { newRoot: "$courses" } },
+
+    // 9. Sort by purchase count (descending)
+    { $sort: { purchaseCount: -1 } },
+
+    // 10. (Optional) Exclude courses with no title
+    // { $match: { title: { $ne: "Unknown Course" } } },
   ]);
 
-  return topCourses;
+  return result;
 }
 
 export async function getTopTutors() {
@@ -434,64 +488,67 @@ export async function getAverageTutorRating() {
   return result[0]?.avgRating?.toFixed(1) || 0;
 }
 
-export async function getSalesTrend(filter = "month") {
-  let groupId;
-  let sortStage;
-
-  if (filter === "year") {
-    groupId = { year: { $year: "$createdAt" } };
-    sortStage = { "_id.year": 1 };
-  } else if (filter === "week") {
-    groupId = {
-      year: { $year: "$createdAt" },
-      week: { $isoWeek: "$createdAt" },
-    };
-    sortStage = { "_id.year": 1, "_id.week": 1 };
-  } else {
-    // Default to "month"
-    groupId = {
-      year: { $year: "$createdAt" },
-      month: { $month: "$createdAt" },
-    };
-    sortStage = { "_id.year": 1, "_id.month": 1 };
-  }
+export async function getTutorSales(dateFilter = {}) {
+  const now = new Date();
+  const startDate =
+    dateFilter.createdAt?.$gte || new Date(now.getFullYear(), 0, 1);
+  const endDate =
+    dateFilter.createdAt?.$lte || new Date(now.getFullYear() + 1, 0, 1);
 
   const payments = await Payment.aggregate([
-    { $match: { status: "success" } },
     {
-      $group: {
-        _id: groupId,
-        totalAmount: { $sum: "$amount" },
+      $match: {
+        status: "success",
+        ...(dateFilter.createdAt ? { createdAt: dateRange.createdAt } : {}),
       },
     },
-    { $sort: sortStage },
+    {
+      $group: {
+        _id: {
+          year: { $year: "$createdAt" },
+          month: { $month: "$createdAt" },
+        },
+        tutorRevenue: { $sum: "$amount" },
+      },
+    },
+    { $sort: { "_id.year": 1, "_id.month": 1 } },
   ]);
 
-  const trend = payments.map((item) => {
-    const total = item.totalAmount;
-    ``;
-    const platformCharge = +(total * 0.1).toFixed(2);
-    const tutorRevenue = +(total * 0.9).toFixed(2);
+  const allMonths = [];
+  const currentDate = new Date(startDate);
 
-    let label;
-    if (filter === "year") {
-      label = `${item._id.year}`;
-    } else if (filter === "week") {
-      label = `W${item._id.week} ${item._id.year}`;
-    } else {
-      const date = new Date(item._id.year, item._id.month - 1);
-      label = date.toLocaleString("default", {
-        month: "short",
-        year: "numeric",
-      }); // e.g., "Mar 2025"
+  while (currentDate <= endDate) {
+    const monthLabel = currentDate.toLocaleString("default", {
+      month: "short",
+      year: "numeric",
+    });
+
+    allMonths.push({
+      month: monthLabel,
+      tutorRevenue: 0,
+    });
+
+    // Move to next month
+    currentDate.setMonth(currentDate.getMonth() + 1);
+  }
+
+  payments.forEach((payment) => {
+    const paymentDate = new Date(payment._id.year, payment._id.month - 1);
+    const monthIndex = allMonths.findIndex(
+      (m) =>
+        m.label ===
+        paymentDate.toLocaleString("default", {
+          month: "short",
+          year: "numeric",
+        })
+    );
+
+    if (monthIndex !== -1) {
+      allMonths[monthIndex].tutorRevenue = +(
+        payment.tutorRevenue * 0.9
+      ).toFixed(2);
     }
-
-    return {
-      label,
-      tutorRevenue,
-      platformCharge,
-    };
   });
 
-  return trend;
+  return allMonths;
 }
