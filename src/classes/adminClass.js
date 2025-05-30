@@ -10,7 +10,7 @@ import {
   getTopTutors,
   getNewTutors,
   getAverageTutorRating,
-  getSalesTrend,
+  getTutorSales,
   getTotalStudents,
   getEnrolledStudents,
   getReviews,
@@ -341,7 +341,7 @@ export default class AdminClass {
         getAverageTutorRating(),
         getTopTutors(dateFilter),
         getTopCourses(dateFilter),
-        getSalesTrend(dateFilter),
+        getTutorSales(dateFilter),
         getTotalRevenue(dateFilter),
         Admin.find({ role: "1" })
           .sort({ createdAt: -1 })
