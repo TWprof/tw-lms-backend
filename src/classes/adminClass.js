@@ -11,6 +11,7 @@ import {
   getNewTutors,
   getAverageTutorRating,
   getTutorSales,
+  getCourseProgressPercentage,
   getTotalStudents,
   getEnrolledStudents,
   getReviews,
@@ -205,11 +206,13 @@ export default class AdminClass {
       const metrics = await getCoreMetrics();
 
       // 2. Fetch chart + recent activities + revenue
-      const [barChartData, recentActivities, totalRevenue] = await Promise.all([
-        getBarChartData(),
-        getRecentActivities(),
-        getTotalRevenue(),
-      ]);
+      const [barChartData, recentActivities, totalRevenue, courseProgress] =
+        await Promise.all([
+          getBarChartData(),
+          getRecentActivities(),
+          getTotalRevenue(),
+          getCourseProgressPercentage(),
+        ]);
 
       // 3. Fetch top tutors and top courses
       const [topCourses, topTutors] = await Promise.all([
@@ -233,6 +236,7 @@ export default class AdminClass {
         recentActivities,
         topCourses,
         topTutors,
+        courseProgress,
         recentTransactions: [],
       });
     } catch (error) {
@@ -264,29 +268,48 @@ export default class AdminClass {
         getTimeStatistics(dateFilter),
       ]);
 
-      // Create a map of enrolled student IDs
-      const enrolledStudentIds = new Set(
-        purchasedCourses
-          .map((pc) => pc.studentId?._id?.toString()) // Access populated student _id
-          .filter((id) => id)
-      );
+      // Build a map of studentId => course info (only first course per student)
+      const studentPurchaseMap = new Map();
+      purchasedCourses.forEach((pc) => {
+        const studentId = pc.studentId?._id?.toString?.();
+        if (studentId && !studentPurchaseMap.has(studentId)) {
+          studentPurchaseMap.set(studentId, {
+            courseTitle: pc.courseId?.title || "Deleted Course",
+            amountPaid: pc.paymentId?.amount || 0,
+          });
+        }
+      });
 
-      // Map students with accurate enrollment status
-      const studentsWithStatus = allStudents.map((student) => ({
-        _id: student._id,
-        fullName: `${student.firstName || ""} ${student.lastName || ""}`.trim(),
-        email: student.email,
-        enrolled: enrolledStudentIds.has(student._id.toString()),
-        createdAt: student.createdAt,
-      }));
+      // Sort students by newest createdAt
+      allStudents.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-      // Rest of the metrics
+      // Map students with enrollment and course details
+      const studentsWithStatus = allStudents.map((student) => {
+        const studentId = student._id.toString();
+        const enrolled = studentPurchaseMap.has(studentId);
+        const purchaseInfo = studentPurchaseMap.get(studentId) || {};
+
+        return {
+          _id: student._id,
+          fullName: `${student.firstName || ""} ${
+            student.lastName || ""
+          }`.trim(),
+          email: student.email,
+          enrolled,
+          courseTitle: enrolled ? purchaseInfo.courseTitle : null,
+          amountPaid: enrolled ? purchaseInfo.amountPaid : null,
+          createdAt: student.createdAt,
+        };
+      });
+
+      // Completion stats
       const abandonedCourses = purchasedCourses.filter((c) => !c.isCompleted);
       const completionRate = calculateCompletionRate(
         purchasedCourses,
         completedCourses
       );
 
+      // Format reviews nicely
       const mappedReviews = reviews.map((r) => ({
         student: r.studentId
           ? `${r.studentId.firstName || ""} ${
@@ -299,13 +322,14 @@ export default class AdminClass {
         createdAt: r.createdAt,
       }));
 
+      // Final response
       return responses.successResponse("Student stats fetched", 200, {
         totalStudents: allStudents.length,
         totalPurchases: purchasedCourses.length,
         completedCourses: completedCourses.length,
         abandonedCourses: abandonedCourses.length,
         completionRate,
-        enrolledStudentsCount: enrolledStudentIds.size,
+        enrolledStudentsCount: studentPurchaseMap.size,
         reviews: mappedReviews,
         timeStats,
         students: studentsWithStatus,
