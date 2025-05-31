@@ -276,16 +276,18 @@ export async function getTopCourses(dateFilter = {}) {
 
 export async function getTopTutors() {
   try {
-    // Step 1: Fetch all tutors' courses
+    // Step 1: Fetch all courses
     const courses = await Course.find()
       .select("_id tutor title thumbnailURL price purchaseCount")
       .lean();
 
-    // Group courses by tutor
     const tutorCoursesMap = new Map();
 
+    // Group courses by tutor
     for (let course of courses) {
-      const tutorId = course.tutor.toString();
+      const tutorId = course.tutor?.toString();
+      if (!tutorId) continue; // Skip if tutor ID is invalid
+
       if (!tutorCoursesMap.has(tutorId)) {
         tutorCoursesMap.set(tutorId, []);
       }
@@ -294,11 +296,10 @@ export async function getTopTutors() {
 
     const tutorStats = [];
 
-    // Step 2: Calculate tutor stats
+    // Step 2: Calculate stats per tutor
     for (let [tutorId, courseList] of tutorCoursesMap.entries()) {
       const courseIds = courseList.map((c) => c._id);
 
-      // Get all purchases related to tutor's courses
       const purchases = await PurchasedCourse.find({
         courseId: { $in: courseIds },
       }).lean();
@@ -313,22 +314,26 @@ export async function getTopTutors() {
           ? ((completedPurchases / totalPurchases) * 100).toFixed(2)
           : "0.00";
 
-      // Find tutor details
+      // Fetch tutor info
       const tutorDetails = await Admin.findById(tutorId)
         .select("firstName lastName email")
         .lean();
 
-      if (!tutorDetails) continue; // If tutor is deleted somehow, skip
+      if (!tutorDetails) {
+        console.warn(`Tutor not found in Admin model: ${tutorId}`);
+      }
 
-      // Find best-selling course (highest purchaseCount)
+      // Find best-selling course
       const bestSellingCourse = courseList.sort(
         (a, b) => b.purchaseCount - a.purchaseCount
       )[0];
 
       tutorStats.push({
         tutorId,
-        name: `${tutorDetails.firstName} ${tutorDetails.lastName}`,
-        email: tutorDetails.email,
+        name: tutorDetails
+          ? `${tutorDetails.firstName} ${tutorDetails.lastName}`
+          : "Unknown Tutor",
+        email: tutorDetails?.email || "Unavailable",
         completionRate: parseFloat(completionRate),
         bestCourse: {
           courseId: bestSellingCourse._id,
@@ -340,7 +345,16 @@ export async function getTopTutors() {
       });
     }
 
-    // Step 3: Sort by completion rate descending and return top 3
+    // Debug: log all stats before slicing
+    console.log(
+      "All tutor stats:",
+      tutorStats.map((t) => ({
+        name: t.name,
+        completionRate: t.completionRate,
+      }))
+    );
+
+    // Step 3: Sort by completion rate and return top 3
     const topTutors = tutorStats
       .sort((a, b) => b.completionRate - a.completionRate)
       .slice(0, 3);
@@ -551,4 +565,29 @@ export async function getTutorSales(dateFilter = {}) {
   });
 
   return allMonths;
+}
+
+export async function getCourseProgressPercentage() {
+  const total = await PurchasedCourse.countDocuments();
+  if (total === 0) {
+    return {
+      completed: 0,
+      notStarted: 0,
+      ongoing: 0,
+    };
+  }
+
+  const completed = await PurchasedCourse.countDocuments({ isCompleted: 1 });
+  const notStarted = await PurchasedCourse.countDocuments({
+    lectureProgress: { $size: 0 },
+  });
+  const ongoing = total - completed - notStarted;
+
+  const percent = (num) => Math.round((num / total) * 100);
+
+  return {
+    completed: percent(completed),
+    notStarted: percent(notStarted),
+    ongoing: percent(ongoing),
+  };
 }
