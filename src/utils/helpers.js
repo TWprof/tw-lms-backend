@@ -345,15 +345,6 @@ export async function getTopTutors() {
       });
     }
 
-    // Debug: log all stats before slicing
-    console.log(
-      "All tutor stats:",
-      tutorStats.map((t) => ({
-        name: t.name,
-        completionRate: t.completionRate,
-      }))
-    );
-
     // Step 3: Sort by completion rate and return top 3
     const topTutors = tutorStats
       .sort((a, b) => b.completionRate - a.completionRate)
