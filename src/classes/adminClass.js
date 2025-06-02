@@ -33,13 +33,13 @@ import Course from "../models/courses.js";
 
 export default class AdminClass {
   // Create Admin
-  async createAdmin(payload, adminId) {
+  async createAdmin(payload) {
     // User = Staff, Tutor, Admin
     // Only an admin can create these users
-    const admin = await Admin.findById(adminId);
-    if (!admin || admin.role !== "0") {
-      return responses.failureResponse("Unauthorized access", 403);
-    }
+    // const admin = await Admin.findById(adminId);
+    // if (!admin || admin.role !== "0") {
+    //   return responses.failureResponse("Unauthorized access", 403);
+    // }
 
     const user = await Admin.findOne({ email: payload.email });
 
