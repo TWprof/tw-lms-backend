@@ -9,8 +9,8 @@ const router = Router();
 
 router.post(
   "/register",
-  authenticate,
-  authorizeAdminOnly,
+  // authenticate,
+  // authorizeAdminOnly,
   adminController.createAdmin
 );
 router.post("/set-password", adminController.setPassword);
