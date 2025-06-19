@@ -20,6 +20,10 @@ const accountNumberSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    bankCode: {
+      type: String,
+      requireed: false,
+    },
   },
   { timestamps: true }
 );

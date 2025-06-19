@@ -20,6 +20,7 @@ import webhookRoutes from "./routes/webhook.js";
 import uploadRoutes from "./routes/upload.js";
 import tutorRoutes from "./routes/tutor.js";
 import messagingRoutes from "./routes/messaging.js";
+import bankRoutes from "./routes/bankList.js";
 
 //Environment variables configuration
 const app = express();
@@ -62,6 +63,7 @@ app.use("/api/v1", webhookRoutes);
 app.use("/api/v1/upload", uploadRoutes);
 app.use("/api/v1/tutor", tutorRoutes);
 app.use("/api/v1/", messagingRoutes);
+app.use("/api/utils/", bankRoutes);
 
 app.get("/", (_req, res) => {
   return res.send(
