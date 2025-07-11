@@ -889,92 +889,96 @@ export default class TutorClass {
         return responses.failureResponse("Account not found", 404);
       }
 
-      // // Step 1: Create transfer recipient
-      // const options = {
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //     Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-      //   },
-      // };
-
-      // const recipientBody = {
-      //   type: "nuban",
-      //   name: account.accountName,
-      //   account_number: account.accountNumber,
-      //   bank_code: account.bankCode,
-      //   currency: "NGN",
-      // };
-
-      // const paystackRecipientURL = `${process.env.PAYSTACK_BASE_URL}/transferrecipient`;
-      // const recipientRes = await axios.post(
-      //   paystackRecipientURL,
-      //   recipientBody,
-      //   options
-      // );
-      // const recipientCode = recipientRes.data.data.recipient_code;
-
-      // // Step 2: Initiate Transfer
-      // const reference = `TWP_WD-${Date.now()}-${Math.floor(
-      //   Math.random() * 10000000000
-      // )}`;
-      // const transferBody = {
-      //   source: "balance",
-      //   amount: amount * 100,
-      //   recipient: recipientCode,
-      //   reason: "Tutor Withdrawal",
-      //   reference,
-      // };
-
-      // const paystackTransferURL = `${process.env.PAYSTACK_BASE_URL}/transfer`;
-      // const transferRes = await axios.post(
-      //   paystackTransferURL,
-      //   transferBody,
-      //   options
-      // );
-      // const transfer = transferRes.data.data;
-
-      // // Step 3: Record the witdrawal
-      // const newWithdrawal = new Withdrawal({
-      //   tutor: tutorId,
-      //   amount,
-      //   accountId,
-      //   reference,
-      //   status: transfer.status === "success" ? "success" : "pending",
-      //   transferredAt: new Date(),
-      // });
-
-      // await newWithdrawal.save();
-
-      // return responses.successResponse("Withdrawal initiated", 200, newWithdrawal);
-
-      // Fake transfer
-      // Simulate recipient creation and transfer
-      const reference = `WD-${Date.now()}-SIM`;
-
-      // ✅ Fake transfer object
-      const fakeTransfer = {
-        status: "success",
-        reference: reference,
-        transferredAt: new Date(),
+      // Step 1: Create transfer recipient
+      const options = {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        },
       };
 
-      // Save the simulated withdrawal
+      const recipientBody = {
+        type: "nuban",
+        name: account.accountName,
+        account_number: account.accountNumber,
+        bank_code: account.bankCode,
+        currency: "NGN",
+      };
+
+      const paystackRecipientURL = `${process.env.PAYSTACK_BASE_URL}/transferrecipient`;
+      const recipientRes = await axios.post(
+        paystackRecipientURL,
+        recipientBody,
+        options
+      );
+      const recipientCode = recipientRes.data.data.recipient_code;
+
+      // Step 2: Initiate Transfer
+      const reference = `TWP_WD-${Date.now()}-${Math.floor(
+        Math.random() * 10000000000
+      )}`;
+      const transferBody = {
+        source: "balance",
+        amount: amount * 100,
+        recipient: recipientCode,
+        reason: "Tutor Withdrawal",
+        reference,
+      };
+
+      const paystackTransferURL = `${process.env.PAYSTACK_BASE_URL}/transfer`;
+      const transferRes = await axios.post(
+        paystackTransferURL,
+        transferBody,
+        options
+      );
+      const transfer = transferRes.data.data;
+
+      // Step 3: Record the witdrawal
       const newWithdrawal = new Withdrawal({
         tutor: tutorId,
         amount,
         accountId,
-        reference: fakeTransfer.reference,
-        status: fakeTransfer.status,
-        transferredAt: fakeTransfer.transferredAt,
+        reference,
+        status: transfer.status === "success" ? "success" : "pending",
+        transferredAt: new Date(),
       });
 
       await newWithdrawal.save();
 
       return responses.successResponse(
-        "Mock withdrawal recorded",
+        "Withdrawal initiated",
         200,
         newWithdrawal
       );
+
+      // // Fake transfer
+      // // Simulate recipient creation and transfer
+      // const reference = `WD-${Date.now()}-SIM`;
+
+      // // Fake transfer object
+      // const fakeTransfer = {
+      //   status: "success",
+      //   reference: reference,
+      //   transferredAt: new Date(),
+      // };
+
+      // // Save the simulated withdrawal
+      // const newWithdrawal = new Withdrawal({
+      //   tutor: tutorId,
+      //   amount,
+      //   accountId,
+      //   reference: fakeTransfer.reference,
+      //   status: fakeTransfer.status,
+      //   transferredAt: fakeTransfer.transferredAt,
+      // });
+
+      // await newWithdrawal.save();
+
+      // return responses.successResponse(
+      //   "Mock withdrawal recorded",
+      //   200,
+      //   newWithdrawal
+      // );
     } catch (error) {
       console.error(
         "Withdrawal error:",
