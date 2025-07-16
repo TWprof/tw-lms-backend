@@ -4,8 +4,10 @@ import Payment from "../models/payment.js";
 import PurchasedCourse from "../models/purchasedCourse.js";
 import Review from "../models/review.js";
 import AccountNumber from "../models/account.js";
+import Withdrawal from "../models/withdrawals.js";
 import responses from "../utils/response.js";
 import bcrypt from "bcrypt";
+import axios from "axios";
 
 export default class TutorClass {
   async tutorStats(tutorId, timePeriod = "month") {
@@ -784,13 +786,14 @@ export default class TutorClass {
 
   async addBankDetails(tutorId, payload) {
     try {
-      const { accountName, accountNumber, bankName } = payload;
+      const { accountName, accountNumber, bankName, bankCode } = payload;
 
       const newAccount = new AccountNumber({
         tutor: tutorId,
         accountName,
         accountNumber,
         bankName,
+        bankCode,
       });
 
       await newAccount.save();
@@ -843,6 +846,145 @@ export default class TutorClass {
       );
     } catch (error) {
       throw new Error("Error deleting bank account");
+    }
+  }
+
+  // Helper function to calculate tutors earnings
+  calculateTutorEarnings = async (tutorId) => {
+    const courses = await Course.find({ tutor: tutorId }).select("_id");
+    const courseIds = courses.map((c) => c._id.toString());
+
+    const purchasedCourses = await PurchasedCourse.find({
+      courseId: { $in: courseIds },
+    }).populate("paymentId");
+
+    const total = purchasedCourses.reduce((acc, item) => {
+      const payment = item.paymentId;
+      return payment?.status === "success" ? acc + payment.amount : acc;
+    }, 0);
+
+    return total * 0.9; // 10% platform charge
+  };
+
+  async requestWithdrawal(tutorId, amount, accountId) {
+    try {
+      const tutor = await Admin.findById(tutorId);
+      if (!tutor || tutor.role !== "1") {
+        return responses.failureResponse("UNAUTHORIZED", 403);
+      }
+
+      const earnings = await this.calculateTutorEarnings(tutorId);
+      const withdrawn = await Withdrawal.aggregate([
+        { $match: { tutor: tutor._id, status: "success" } },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]);
+
+      const available = earnings - (withdrawn[0]?.total || 0);
+      if (amount > available) {
+        return responses.failureResponse("Insufficient balance", 400);
+      }
+
+      const account = await AccountNumber.findById(accountId);
+      if (!account) {
+        return responses.failureResponse("Account not found", 404);
+      }
+
+      // Step 1: Create transfer recipient
+      const options = {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        },
+      };
+
+      const recipientBody = {
+        type: "nuban",
+        name: account.accountName,
+        account_number: account.accountNumber,
+        bank_code: account.bankCode,
+        currency: "NGN",
+      };
+
+      const paystackRecipientURL = `${process.env.PAYSTACK_BASE_URL}/transferrecipient`;
+      const recipientRes = await axios.post(
+        paystackRecipientURL,
+        recipientBody,
+        options
+      );
+      const recipientCode = recipientRes.data.data.recipient_code;
+
+      // Step 2: Initiate Transfer
+      const reference = `TWP_WD-${Date.now()}-${Math.floor(
+        Math.random() * 10000000000
+      )}`;
+      const transferBody = {
+        source: "balance",
+        amount: amount * 100,
+        recipient: recipientCode,
+        reason: "Tutor Withdrawal",
+        reference,
+      };
+
+      const paystackTransferURL = `${process.env.PAYSTACK_BASE_URL}/transfer`;
+      const transferRes = await axios.post(
+        paystackTransferURL,
+        transferBody,
+        options
+      );
+      const transfer = transferRes.data.data;
+
+      // Step 3: Record the witdrawal
+      const newWithdrawal = new Withdrawal({
+        tutor: tutorId,
+        amount,
+        accountId,
+        reference,
+        status: transfer.status === "success" ? "success" : "pending",
+        transferredAt: new Date(),
+      });
+
+      await newWithdrawal.save();
+
+      return responses.successResponse(
+        "Withdrawal initiated",
+        200,
+        newWithdrawal
+      );
+
+      // // Fake transfer
+      // // Simulate recipient creation and transfer
+      // const reference = `WD-${Date.now()}-SIM`;
+
+      // // Fake transfer object
+      // const fakeTransfer = {
+      //   status: "success",
+      //   reference: reference,
+      //   transferredAt: new Date(),
+      // };
+
+      // // Save the simulated withdrawal
+      // const newWithdrawal = new Withdrawal({
+      //   tutor: tutorId,
+      //   amount,
+      //   accountId,
+      //   reference: fakeTransfer.reference,
+      //   status: fakeTransfer.status,
+      //   transferredAt: fakeTransfer.transferredAt,
+      // });
+
+      // await newWithdrawal.save();
+
+      // return responses.successResponse(
+      //   "Mock withdrawal recorded",
+      //   200,
+      //   newWithdrawal
+      // );
+    } catch (error) {
+      console.error(
+        "Withdrawal error:",
+        error?.response?.data || error.message
+      );
+      return responses.failureResponse("Unable to initiate this transfer", 500);
     }
   }
 }

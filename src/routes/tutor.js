@@ -12,6 +12,8 @@ router.get("/students", authenticate, tutorController.tutorStudents);
 
 router.get("/transactions", authenticate, tutorController.tutorTransactions);
 
+router.post("/withdraw", authenticate, tutorController.requestWithdrawal);
+
 router.get(
   "/course-analytics",
   authenticate,
@@ -32,4 +34,5 @@ router.delete(
   authenticate,
   tutorController.deleteBankAccount
 );
+
 export default router;

@@ -88,6 +88,17 @@ const tutorController = {
     const data = await new TutorClass().deleteBankAccount(accountId, tutorId);
     res.status(data.statusCode).json(data);
   },
+
+  requestWithdrawal: async (req, res) => {
+    const tutorId = req.user._id;
+    const { amount, accountId } = req.body;
+    const data = await new TutorClass().requestWithdrawal(
+      tutorId,
+      amount,
+      accountId
+    );
+    res.status(data.statusCode).json(data);
+  },
 };
 
 export default tutorController;
