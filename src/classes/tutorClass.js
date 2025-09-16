@@ -889,7 +889,6 @@ export default class TutorClass {
         return responses.failureResponse("Account not found", 404);
       }
 
-      // Step 1: Create transfer recipient
       const options = {
         headers: {
           "Content-Type": "application/json",
@@ -897,26 +896,34 @@ export default class TutorClass {
         },
       };
 
-      const recipientBody = {
-        type: "nuban",
-        name: account.accountName,
-        account_number: account.accountNumber,
-        bank_code: account.bankCode,
-        currency: "NGN",
-      };
+      let recipientCode = account.recipientCode;
 
-      const paystackRecipientURL = `${process.env.PAYSTACK_BASE_URL}/transferrecipient`;
-      const recipientRes = await axios.post(
-        paystackRecipientURL,
-        recipientBody,
-        options
-      );
-      const recipientCode = recipientRes.data.data.recipient_code;
+      // Create recipient if doesn't exist
+      if (!recipientCode) {
+        const recipientBody = {
+          type: "nuban",
+          name: account.accountName,
+          account_number: account.accountNumber,
+          bank_code: account.bankCode,
+          currency: "NGN",
+        };
 
-      // Step 2: Initiate Transfer
-      const reference = `TWP_WD-${Date.now()}-${Math.floor(
-        Math.random() * 10000000000
-      )}`;
+        const paystackRecipientURL = `${process.env.PAYSTACK_BASE_URL}/transferrecipient`;
+        const recipientRes = await axios.post(
+          paystackRecipientURL,
+          recipientBody,
+          options
+        );
+
+        recipientCode = recipientRes.data.data.recipient_code;
+
+        // Save recipient code to account
+        account.recipientCode = recipientCode;
+        await account.save();
+      }
+
+      // Initiate Transfer
+      const reference = `TWP-WD-${Math.floor(Math.random() * 10000000000)}`;
       const transferBody = {
         source: "balance",
         amount: amount * 100,
@@ -933,57 +940,37 @@ export default class TutorClass {
       );
       const transfer = transferRes.data.data;
 
-      // Step 3: Record the witdrawal
+      // Record the withdrawal with initial status as pending
       const newWithdrawal = new Withdrawal({
         tutor: tutorId,
         amount,
         accountId,
         reference,
-        status: transfer.status === "success" ? "success" : "pending",
-        transferredAt: new Date(),
+        status: "pending", // Always set to pending initially
+        transferredAt: null, // Will be set when webhook updates status
       });
 
       await newWithdrawal.save();
 
       return responses.successResponse(
-        "Withdrawal initiated",
+        "Withdrawal initiated successfully",
         200,
         newWithdrawal
       );
-
-      // // Fake transfer
-      // // Simulate recipient creation and transfer
-      // const reference = `WD-${Date.now()}-SIM`;
-
-      // // Fake transfer object
-      // const fakeTransfer = {
-      //   status: "success",
-      //   reference: reference,
-      //   transferredAt: new Date(),
-      // };
-
-      // // Save the simulated withdrawal
-      // const newWithdrawal = new Withdrawal({
-      //   tutor: tutorId,
-      //   amount,
-      //   accountId,
-      //   reference: fakeTransfer.reference,
-      //   status: fakeTransfer.status,
-      //   transferredAt: fakeTransfer.transferredAt,
-      // });
-
-      // await newWithdrawal.save();
-
-      // return responses.successResponse(
-      //   "Mock withdrawal recorded",
-      //   200,
-      //   newWithdrawal
-      // );
     } catch (error) {
       console.error(
         "Withdrawal error:",
         error?.response?.data || error.message
       );
+
+      // Handle specific Paystack errors
+      if (error.response?.data?.message) {
+        return responses.failureResponse(
+          `Transfer failed: ${error.response.data.message}`,
+          400
+        );
+      }
+
       return responses.failureResponse("Unable to initiate this transfer", 500);
     }
   }
