@@ -2,8 +2,19 @@ import webhookServices from "../services/webhook.js";
 
 const webhookController = {
   paystackWebhook: async (req, res) => {
-    const data = await webhookServices.paystackWebhook(req.body);
-    res.status(data.statusCode).json(data);
+    try {
+      const rawBody = req.body.toString();
+      const payload = JSON.parse(rawBody);
+
+      console.log("Webhook received:", payload.event);
+
+      const data = await webhookServices.paystackWebhook(payload);
+
+      return res.status(200).json(data);
+    } catch (err) {
+      console.error("Webhook error:", err.message);
+      return res.sendStatus(400);
+    }
   },
 };
 
