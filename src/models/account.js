@@ -24,6 +24,10 @@ const accountNumberSchema = new mongoose.Schema(
       type: String,
       requireed: false,
     },
+    recipientCode: {
+      type: String, // Paystack recipient code
+      default: null,
+    },
   },
   { timestamps: true }
 );

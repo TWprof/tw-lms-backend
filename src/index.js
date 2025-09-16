@@ -59,12 +59,16 @@ app.use("/api/v1", studentRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/courses", courseRoutes);
 app.use("/api/v1/cart", cartRoutes);
-app.use("/api/v1", webhookRoutes);
 app.use("/api/v1/upload", uploadRoutes);
 app.use("/api/v1/tutor", tutorRoutes);
 app.use("/api/v1/", messagingRoutes);
 app.use("/api/utils/", bankRoutes);
 
+app.use(
+  "/api/v1/webhook",
+  express.raw({ type: "application/json" }),
+  webhookRoutes
+);
 app.get("/", (_req, res) => {
   return res.send(
     "Welcome to Techware Professional Services Learning Platform"
