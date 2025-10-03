@@ -48,6 +48,7 @@ export default class StudentClass {
       message: emailTemplate,
     };
     // send email by calling sendMail function
+
     await sendMail(emailPayload, constants.verifyEmail);
 
     const data = {
