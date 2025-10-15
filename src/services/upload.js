@@ -1,4 +1,5 @@
-import cloudinaryService from "../services/cloudinary.js";
+// import cloudinaryService from "../services/cloudinary.js";
+import s3Service from "../services/s3bucket.js";
 import responses from "../utils/response.js";
 import path from "path";
 import fs from "fs";
@@ -19,9 +20,12 @@ const uploadService = {
     await file.mv(tmpUploadFileName);
 
     // Upload to cloudinary
-    const result = await cloudinaryService.uploadFileToCloudinary(
-      tmpUploadFileName
-    );
+    // const result = await cloudinaryService.uploadFileToCloudinary(
+    //   tmpUploadFileName
+    // );
+
+    // upload to s3Bucket
+    const result = await s3Service.uploadFileToS3(tmpUploadFileName);
 
     if (!result) {
       return responses.failureResponse("failed to upload", 400);
