@@ -10,19 +10,35 @@ const s3Service = {
   uploadFileToS3: async (filepath) => {
     try {
       const fileStream = fs.createReadStream(filepath);
-      const fileName = path.basename(filepath);
+      let fileName = path.basename(filepath);
+
+      fileName = fileName.replace(/\s+/g, "_");
+
+      const ext = path.extname(fileName).toLowerCase();
+      const videoExtensions = [".mp4", ".mov", ".avi", ".mkv", ".webm"];
+      const imageExtensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp"];
+      const docExtensions = [".pdf", ".doc", ".docx", ".txt"];
+
+      let contentType = "application/octet-stream";
+
+      if (videoExtensions.includes(ext)) contentType = "video/mp4";
+      else if (imageExtensions.includes(ext))
+        contentType = `image/${ext.replace(".", "")}`;
+      else if (docExtensions.includes(ext)) {
+        if (ext === ".pdf") contentType = "application/pdf";
+        else if (ext === ".txt") contentType = "text/plain";
+        else contentType = "application/msword";
+      }
 
       const params = {
         Bucket: process.env.AWS_BUCKET_NAME,
         Key: fileName,
         Body: fileStream,
+        ContentType: contentType,
       };
 
-      // Get video duration before upload
+      //Get video duration before upload (if it’s a video)
       let duration = null;
-      const ext = path.extname(fileName).toLowerCase();
-      const videoExtensions = [".mp4", ".mov", ".avi", ".mkv", ".webm"];
-
       if (videoExtensions.includes(ext)) {
         try {
           duration = await getVideoDuration(filepath);
@@ -31,7 +47,7 @@ const s3Service = {
         }
       }
 
-      // Upload to s3
+      // Upload to S3
       const parallelUpload = new Upload({
         client: s3,
         params,
