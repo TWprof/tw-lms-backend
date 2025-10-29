@@ -12,15 +12,16 @@ const s3Service = {
       const fileStream = fs.createReadStream(filepath);
       let fileName = path.basename(filepath);
 
+      // Clean up filename
       fileName = fileName.replace(/\s+/g, "_");
 
+      // Determine content type
       const ext = path.extname(fileName).toLowerCase();
       const videoExtensions = [".mp4", ".mov", ".avi", ".mkv", ".webm"];
       const imageExtensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp"];
       const docExtensions = [".pdf", ".doc", ".docx", ".txt"];
 
       let contentType = "application/octet-stream";
-
       if (videoExtensions.includes(ext)) contentType = "video/mp4";
       else if (imageExtensions.includes(ext))
         contentType = `image/${ext.replace(".", "")}`;
@@ -37,7 +38,7 @@ const s3Service = {
         ContentType: contentType,
       };
 
-      //Get video duration before upload (if it’s a video)
+      // Get video duration before upload (if it’s a video)
       let duration = null;
       if (videoExtensions.includes(ext)) {
         try {
@@ -69,5 +70,3 @@ const s3Service = {
 };
 
 export default s3Service;
-
-// git push
