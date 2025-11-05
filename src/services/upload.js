@@ -7,14 +7,16 @@ import fs from "fs";
 const uploadService = {
   uploadFile: async (file) => {
     // Create temporary folder
-    const tmpUploadFilePath = `${path.resolve()}\\tmp`;
+    // const tmpUploadFilePath = `${path.resolve()}\\tmp`;
+    const tmpUploadFilePath = path.join(path.resolve(), "tmp");
 
     // If tmp does exist, create tmp folder
     if (!fs.existsSync(tmpUploadFilePath)) {
       fs.mkdirSync(tmpUploadFilePath);
     }
 
-    const tmpUploadFileName = `${tmpUploadFilePath}\\${file.name}`;
+    // const tmpUploadFileName = `${tmpUploadFilePath}\\${file.name}`;
+    const tmpUploadFileName = path.join(tmpUploadFilePath, file.name);
 
     // Move uploaded file to tmp server
     await file.mv(tmpUploadFileName);
