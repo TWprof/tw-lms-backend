@@ -82,11 +82,36 @@ const webhookServices = {
       new: true,
     });
 
-    const metadata = payload.data.metadata || response.data.data.metadata || {};
-    const { cartIds, studentId } = metadata;
+    // Original code. uncomment when FE arrives
+    // const metadata = payload.data.metadata || response.data.data.metadata || {};
+    // const { cartIds, studentId } = metadata;
+    // if (!cartIds || !studentId) {
+    //   console.error("Missing metadata in payment verification response");
+    //   return responses.failureResponse("Invalid payment metadata", 400);
+    // }
 
+    // Tempoary fix due to FE absence
+    let { cartIds, studentId, courseIds } = response.data.data.metadata || {};
+
+    // Fallback: extract from referrer if missing
     if (!cartIds || !studentId) {
-      console.error("Missing metadata in payment verification response");
+      console.warn("Metadata missing, attempting fallback from referrer...");
+
+      const referrer = response.data.data.metadata?.referrer || "";
+      try {
+        const url = new URL(referrer);
+        // Example: expect query params like ?studentId=xxx&cartIds=yyy,zzz&courseIds=aaa,bbb
+        studentId = studentId || url.searchParams.get("studentId");
+        cartIds = cartIds || url.searchParams.get("cartIds")?.split(",");
+        courseIds = courseIds || url.searchParams.get("courseIds")?.split(",");
+      } catch (err) {
+        console.error("Error parsing referrer URL for metadata:", err.message);
+      }
+    }
+
+    // Final check
+    if (!cartIds || !studentId) {
+      console.error("Could not extract required metadata");
       return responses.failureResponse("Invalid payment metadata", 400);
     }
 
