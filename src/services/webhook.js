@@ -82,7 +82,8 @@ const webhookServices = {
       new: true,
     });
 
-    const { cartIds, studentId } = response.data.data.metadata;
+    const metadata = payload.data.metadata || response.data.data.metadata || {};
+    const { cartIds, studentId } = metadata;
 
     if (!cartIds || !studentId) {
       console.error("Missing metadata in payment verification response");
