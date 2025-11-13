@@ -3,8 +3,7 @@ import webhookServices from "../services/webhook.js";
 const webhookController = {
   paystackWebhook: async (req, res) => {
     try {
-      const rawBody = req.body.toString();
-      const payload = JSON.parse(rawBody);
+      const payload = req.body;
 
       console.log("Webhook received:", payload.event);
 
