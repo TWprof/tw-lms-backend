@@ -83,42 +83,10 @@ const webhookServices = {
     });
 
     // Original code. uncomment when FE arrives
-    // const metadata = payload.data.metadata || response.data.data.metadata || {};
-    // const { cartIds, studentId } = metadata;
-    // if (!cartIds || !studentId) {
-    //   console.error("Missing metadata in payment verification response");
-    //   return responses.failureResponse("Invalid payment metadata", 400);
-    // }
-
-    // Tempoary fix due to FE absence
-    let { cartIds, studentId, courseIds } = response.data.data.metadata || {};
-
-    // Fallback: extract from referrer if missing
+    const metadata = payload.data.metadata || response.data.data.metadata || {};
+    const { cartIds, studentId } = metadata;
     if (!cartIds || !studentId) {
-      console.warn("Metadata missing, attempting fallback from DB");
-
-      const email = payload.data.customer.email;
-      const student = await Student.findOne({ email });
-
-      if (student) {
-        studentId = studentId || student._id.toString();
-
-        // get all pending cart items for student
-        const cartItems = await Cart.find({
-          studentId: student._id,
-          status: "pending",
-        });
-
-        if (cartItems.length > 0) {
-          cartIds = cartIds || cartItems.map((c) => c._id.toString());
-          courseIds = courseIds || cartItems.map((c) => c.courseId.toString());
-        }
-      }
-    }
-
-    // Final check
-    if (!cartIds || !studentId) {
-      console.error("Could not extract required metadata");
+      console.error("Missing metadata in payment verification response");
       return responses.failureResponse("Invalid payment metadata", 400);
     }
 
