@@ -95,17 +95,24 @@ const webhookServices = {
 
     // Fallback: extract from referrer if missing
     if (!cartIds || !studentId) {
-      console.warn("Metadata missing, attempting fallback from referrer...");
+      console.warn("Metadata missing, attempting fallback from DB");
 
-      const referrer = response.data.data.metadata?.referrer || "";
-      try {
-        const url = new URL(referrer);
-        // Example: expect query params like ?studentId=xxx&cartIds=yyy,zzz&courseIds=aaa,bbb
-        studentId = studentId || url.searchParams.get("studentId");
-        cartIds = cartIds || url.searchParams.get("cartIds")?.split(",");
-        courseIds = courseIds || url.searchParams.get("courseIds")?.split(",");
-      } catch (err) {
-        console.error("Error parsing referrer URL for metadata:", err.message);
+      const email = payload.data.customer.email;
+      const student = await Student.findOne({ email });
+
+      if (student) {
+        studentId = studentId || student._id.toString();
+
+        // get all pending cart items for student
+        const cartItems = await Cart.find({
+          studentId: student._id,
+          status: "pending",
+        });
+
+        if (cartItems.length > 0) {
+          cartIds = cartIds || cartItems.map((c) => c._id.toString());
+          courseIds = courseIds || cartItems.map((c) => c.courseId.toString());
+        }
       }
     }
 
