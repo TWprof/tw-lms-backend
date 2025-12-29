@@ -26,50 +26,33 @@ const webhookServices = {
 
   handlePaymentSuccess: async function (payload) {
     try {
-      console.log("Payment successful");
-
       const reference = payload.data.reference;
+      const metadata = payload.data.metadata;
 
-      const transaction = await Payment.findOne({ reference });
-      if (!transaction) {
-        return responses.failureResponse(
-          "This payment reference does not exist",
-          404
-        );
-      }
-
-      // Verify payment with Paystack
-      const options = {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-        },
-      };
-
-      const paystackURL = `${process.env.PAYSTACK_BASE_URL}/transaction/verify/${reference}`;
-      const response = await axios.get(paystackURL, options);
-
-      if (response.data.data.status !== "success") {
-        return responses.failureResponse("Payment verification failed", 500);
-      }
-
-      // Update payment record
-      await Payment.findByIdAndUpdate(
-        transaction._id,
-        {
-          transactionId: response.data.data.id,
-          channel: response.data.data.channel,
-          paidAt: response.data.data.paid_at,
-          currency: response.data.data.currency,
-          status: response.data.data.status,
-        },
-        { new: true }
-      );
-
-      const { cartIds, studentId } = response.data.data.metadata;
-      if (!cartIds || !studentId) {
+      if (!metadata?.cartIds || !metadata?.studentId) {
         return responses.failureResponse("Invalid payment metadata", 400);
       }
+
+      const { cartIds, studentId } = metadata;
+
+      // 1️⃣ Idempotency check
+      const existing = await Payment.findOne({ reference });
+      if (existing?.status === "success") {
+        return responses.successResponse("Already processed", 200);
+      }
+
+      // 2️⃣ Update payment using webhook data (NOT verify API)
+      const payment = await Payment.findOneAndUpdate(
+        { reference },
+        {
+          transactionId: payload.data.id,
+          channel: payload.data.channel,
+          paidAt: payload.data.paid_at,
+          currency: payload.data.currency,
+          status: "success",
+        },
+        { new: true, upsert: true }
+      );
 
       const student = await Student.findById(studentId);
       if (!student) {
@@ -80,6 +63,7 @@ const webhookServices = {
 
       const cartItems = await Cart.find({
         _id: { $in: cartIds },
+        studentId,
       }).populate("courseId");
 
       for (const cartItem of cartItems) {
@@ -90,18 +74,24 @@ const webhookServices = {
         const charges = courseAmount * 0.1;
         const totalAmount = courseAmount - charges;
 
-        // Save purchased course
-        await PurchasedCourse.create({
+        // Prevent duplicate purchase
+        const alreadyPurchased = await PurchasedCourse.findOne({
           studentId,
           courseId: course._id,
-          paymentId: transaction._id,
-          purchaseDate: new Date(),
         });
 
-        // Increment course purchase count
-        await Course.findByIdAndUpdate(course._id, {
-          $inc: { purchaseCount: 1 },
-        });
+        if (!alreadyPurchased) {
+          await PurchasedCourse.create({
+            studentId,
+            courseId: course._id,
+            paymentId: payment._id,
+            purchaseDate: new Date(),
+          });
+
+          await Course.findByIdAndUpdate(course._id, {
+            $inc: { purchaseCount: 1 },
+          });
+        }
 
         // Notify tutor
         const tutorEmailTemplate = getTemplate("purchasenotification.html", {
@@ -122,20 +112,18 @@ const webhookServices = {
           },
           constants.notifyPurchase
         );
-
-        // Mark cart item successful
-        await Cart.findByIdAndUpdate(cartItem._id, {
-          status: "success",
-        });
       }
 
-      // Clear purchased cart items
-      await Cart.deleteMany({ studentId, status: "success" });
+      // 3️⃣ Clear cart (no status gymnastics)
+      await Cart.deleteMany({
+        _id: { $in: cartIds },
+        studentId,
+      });
 
-      return responses.successResponse("Transaction verified and noted", 200);
+      return responses.successResponse("Payment processed successfully", 200);
     } catch (error) {
-      console.error("Payment webhook error:", error.message);
-      return responses.failureResponse("Error processing payment", 500);
+      console.error("Webhook processing error:", error);
+      return responses.failureResponse("Error processing webhook", 500);
     }
   },
 };
