@@ -11,10 +11,10 @@ export default class ProgressClass {
         lectureId,
         videoId,
         timestamp,
-        isCompleted,
+        isCompleted, // optional, NOT trusted
       } = payload;
 
-      // Validate input
+      // Validate missing fields
       const missingFields = [];
       if (!studentId) missingFields.push("studentId");
       if (!courseId) missingFields.push("courseId");
@@ -29,101 +29,118 @@ export default class ProgressClass {
         );
       }
 
-      // Find the purchased course
-      const course = await PurchasedCourse.findOne({
-        studentId,
-        courseId,
-      });
-
+      // fetch the purchased course
+      const course = await PurchasedCourse.findOne({ studentId, courseId });
       if (!course) {
         return responses.failureResponse(
-          "This Course has not been purchased by this student",
+          "This course has not been purchased by this student",
           404
         );
       }
 
-      // Fetch the course details to get video duration
+      // get course stats
       const courseDetails = await Course.findById(courseId).select("lectures");
       if (!courseDetails) {
         return responses.failureResponse("Course not found", 404);
       }
 
-      // Find the video duration
       const lecture = courseDetails.lectures.find(
-        (lecture) => lecture._id.toString() === lectureId.toString()
+        (l) => l._id.toString() === lectureId.toString()
       );
       if (!lecture) {
         return responses.failureResponse("Lecture not found", 404);
       }
 
       const video = lecture.videoURLs.find(
-        (video) => video._id.toString() === videoId.toString()
+        (v) => v._id.toString() === videoId.toString()
       );
       if (!video) {
         return responses.failureResponse("Video not found", 404);
       }
 
-      // Assuming video.duration is stored in seconds
       const totalDuration = video.duration || 0;
+      if (totalDuration === 0) {
+        return responses.failureResponse("Invalid video duration", 400);
+      }
 
-      // Update video progress
-      const videoProgress = course.progress.find(
-        (progress) =>
-          progress.lectureId.toString() === lectureId.toString() &&
-          progress.videoId.toString() === videoId.toString()
+      // course completion logic by video
+      const COMPLETION_THRESHOLD = 0.95;
+      const normalizedTimestamp = Math.min(timestamp, totalDuration);
+
+      const isVideoCompleted =
+        isCompleted === true ||
+        normalizedTimestamp / totalDuration >= COMPLETION_THRESHOLD;
+
+      // update video progress
+      let videoProgress = course.progress.find(
+        (p) =>
+          p.lectureId.toString() === lectureId.toString() &&
+          p.videoId.toString() === videoId.toString()
       );
 
       if (videoProgress) {
-        videoProgress.timestamp = timestamp;
-        if (timestamp >= totalDuration) {
-          videoProgress.completed = true;
-        }
-        videoProgress.completed = isCompleted || videoProgress.completed;
+        videoProgress.timestamp = normalizedTimestamp;
+        videoProgress.completed = videoProgress.completed || isVideoCompleted;
       } else {
         course.progress.push({
           lectureId,
           videoId,
-          timestamp,
-          completed: timestamp >= totalDuration,
+          timestamp: normalizedTimestamp,
+          completed: isVideoCompleted,
         });
       }
 
-      // Update lecture progress (percentage completed)
-      const lectureProgress = course.lectureProgress.find(
-        (progress) => progress.lectureId.toString() === lectureId.toString()
+      // update the lecture progress
+      const lectureVideos = lecture.videoURLs.map((v) => v._id.toString());
+
+      const completedLectureVideos = course.progress.filter(
+        (p) => p.completed && p.lectureId.toString() === lectureId.toString()
+      );
+
+      const lecturePercentage =
+        (completedLectureVideos.length / lectureVideos.length) * 100;
+
+      let lectureProgress = course.lectureProgress.find(
+        (lp) => lp.lectureId.toString() === lectureId.toString()
       );
 
       if (lectureProgress) {
-        // Calculate percentage completed
-        lectureProgress.percentageCompleted = Math.min(
-          100,
-          (timestamp / totalDuration) * 100
-        );
+        lectureProgress.percentageCompleted = Math.min(100, lecturePercentage);
       } else {
         course.lectureProgress.push({
           lectureId,
-          percentageCompleted: Math.min(100, (timestamp / totalDuration) * 100),
+          percentageCompleted: Math.min(100, lecturePercentage),
         });
       }
 
-      // Mark courses as completed: isCompleted = 1
-      const allVideos = courseDetails.lectures.flatMap((lecture) =>
-        lecture.videoURLs.map((video) => video._id.toString())
+      // course completion
+      const allVideoIds = courseDetails.lectures.flatMap((l) =>
+        l.videoURLs.map((v) => v._id.toString())
       );
-      const completedVideos = course.progress
-        .filter((p) => p.completed)
-        .map((p) => p.videoId.toString());
 
-      if (allVideos.every((videoId) => completedVideos.includes(videoId))) {
-        course.isCompleted = 1;
-      }
+      const completedVideoIds = [
+        ...new Set(
+          course.progress
+            .filter((p) => p.completed)
+            .map((p) => p.videoId.toString())
+        ),
+      ];
+
+      const isCourseCompleted = allVideoIds.every((id) =>
+        completedVideoIds.includes(id)
+      );
+
+      course.isCompleted = isCourseCompleted ? 1 : 0;
+
       await course.save();
 
-      return responses.successResponse(
-        "Progress updated successfully",
-        200,
-        course
-      );
+      return responses.successResponse("Progress updated successfully", 200, {
+        isCourseCompleted,
+        completedVideos: completedVideoIds.length,
+        totalVideos: allVideoIds.length,
+        lectureProgress:
+          lectureProgress?.percentageCompleted ?? lecturePercentage,
+      });
     } catch (error) {
       console.error("Error updating progress:", error);
       return responses.failureResponse("Failed to update progress", 500);
@@ -147,30 +164,46 @@ export default class ProgressClass {
           select: "url filename",
         });
 
-      if (coursesPurchased.length === 0) {
+      if (!coursesPurchased || coursesPurchased.length === 0) {
         return responses.failureResponse("No ongoing progress found", 404);
       }
 
-      // Format the response
-      const continueWatchingData = coursesPurchased.map((purchasedCourse) => ({
-        courseId: purchasedCourse.courseId._id,
-        courseTitle: purchasedCourse.courseId.title,
-        thumbnailURL: purchasedCourse.courseId.thumbnailURL,
-        progress: purchasedCourse.progress
-          .filter((progress) => !progress.completed)
-          .map((progress) => ({
-            lectureId: progress.lectureId._id,
-            lectureTitle: progress.lectureId.title,
-            videoId: progress.videoId._id,
-            videoTitle: progress.videoId.filename,
-            timestamp: progress.timestamp,
-            completed: progress.completed,
-          })),
-        lectureProgress: purchasedCourse.lectureProgress.map((progress) => ({
-          lectureId: progress.lectureId,
-          percentageCompleted: progress.percentageCompleted,
-        })),
-      }));
+      const continueWatchingData = coursesPurchased
+        .map((purchasedCourse) => {
+          // only unfinished videos
+          const incompleteProgress = purchasedCourse.progress.filter(
+            (p) => !p.completed
+          );
+
+          // skip courses that have no unfinished videos
+          if (incompleteProgress.length === 0) return null;
+
+          return {
+            courseId: purchasedCourse.courseId._id,
+            courseTitle: purchasedCourse.courseId.title,
+            thumbnailURL: purchasedCourse.courseId.thumbnailURL,
+
+            progress: incompleteProgress.map((p) => ({
+              lectureId: p.lectureId._id,
+              lectureTitle: p.lectureId.title,
+              lectureNumber: p.lectureId.lectureNumber,
+              videoId: p.videoId._id,
+              videoTitle: p.videoId.filename,
+              timestamp: p.timestamp,
+            })),
+
+            // lecture progress (explicit + consistent)
+            lectureProgress: purchasedCourse.lectureProgress.map((lp) => ({
+              lectureId: lp.lectureId.toString(),
+              percentageCompleted: lp.percentageCompleted,
+            })),
+          };
+        })
+        .filter(Boolean); // remove null entries
+
+      if (continueWatchingData.length === 0) {
+        return responses.failureResponse("No ongoing progress found", 404);
+      }
 
       return responses.successResponse(
         "Continue watching data fetched successfully",
