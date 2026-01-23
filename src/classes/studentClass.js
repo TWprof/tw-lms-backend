@@ -79,7 +79,7 @@ export default class StudentClass {
 
     return responses.successResponse(
       "Email verified successfully! Proceed to login",
-      200
+      200,
     );
   }
 
@@ -95,7 +95,7 @@ export default class StudentClass {
     if (!foundStudent.isVerified) {
       return responses.failureResponse(
         "Only verified students can login. Please verify your email",
-        400
+        400,
       );
     }
 
@@ -106,7 +106,7 @@ export default class StudentClass {
 
     const studentPassword = await bcrypt.compare(
       payload.password,
-      foundStudent.password
+      foundStudent.password,
     );
 
     if (!studentPassword) {
@@ -128,7 +128,7 @@ export default class StudentClass {
       process.env.JWT_SECRET,
       {
         expiresIn: "30d",
-      }
+      },
     );
 
     return responses.successResponse("Login successful", 200, {
@@ -145,14 +145,14 @@ export default class StudentClass {
       if (!payload || !payload.email) {
         return responses.failureResponse(
           "This field cannot be empty. Please input your email",
-          400
+          400,
         );
       }
 
       if (!emailFound) {
         return responses.failureResponse(
           "Incorrect email! Please check and try again",
-          400
+          400,
         );
       }
 
@@ -164,7 +164,7 @@ export default class StudentClass {
         { _id: emailFound._id },
         { resetPin: resetPin },
         { resetPinExpires: resetPinExpires },
-        { new: true }
+        { new: true },
       );
 
       //use email template
@@ -188,7 +188,7 @@ export default class StudentClass {
       // updateStudent.save({ validateBeforeSave: false });
       return responses.failureResponse(
         "Unable to send reset pin. Please try again later",
-        500
+        500,
       );
     }
     return responses.successResponse("Reset pin sent successfully", 200, {});
@@ -212,7 +212,7 @@ export default class StudentClass {
   // set new password
   async resetPassword(payload) {
     const student = await Student.findOne(
-      { email: payload.email }
+      { email: payload.email },
       // { resetPin: payload.resetPin } // not necessary
     );
 
@@ -227,7 +227,7 @@ export default class StudentClass {
       { _id: student._id },
       { password: payload.password },
       { resetPin: null },
-      { new: true }
+      { new: true },
     );
 
     const returnData = {
@@ -238,18 +238,58 @@ export default class StudentClass {
     return responses.successResponse(
       "Password Reset Successful",
       200,
-      returnData
+      returnData,
     );
   }
 
   // Get student purchased Courses
   async getStudentCourses(studentId) {
     try {
-      const courses = await PurchasedCourse.find({ studentId }).populate(
-        "courseId"
-      );
+      const purchasedCourses = await PurchasedCourse.find({
+        studentId,
+      }).populate("courseId");
 
-      return responses.successResponse("Your courses are", 200, courses);
+      const data = purchasedCourses.map((purchased) => {
+        const lectures = purchased.courseId.lectures || [];
+
+        const totalVideos = lectures.reduce(
+          (sum, lecture) => sum + lecture.videoURLs.length,
+          0,
+        );
+
+        const watchedVideos = new Set(
+          purchased.progress
+            .filter((p) => p.completed)
+            .map((p) => p.videoId.toString()),
+        ).size;
+
+        // find last incomplete video (resume point)
+        const lastProgress = purchased.progress
+          .filter((p) => !p.completed)
+          .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+
+        return {
+          courseId: purchased.courseId._id,
+          title: purchased.courseId.title,
+          thumbnailURL: purchased.courseId.thumbnailURL,
+
+          progressCount: `${watchedVideos}/${totalVideos}`,
+          watchedVideos,
+          totalVideos,
+
+          resume: lastProgress
+            ? {
+                lectureId: lastProgress.lectureId,
+                videoId: lastProgress.videoId,
+                timestamp: lastProgress.timestamp,
+              }
+            : null,
+
+          isCompleted: purchased.isCompleted === 1,
+        };
+      });
+
+      return responses.successResponse("Your courses are", 200, data);
     } catch (error) {
       console.error("Unable to get courses", error);
       return responses.failureResponse("Failed to fetch courses", 500);
@@ -260,19 +300,19 @@ export default class StudentClass {
   async getEachCourse(courseId) {
     try {
       const course = await PurchasedCourse.findOne({ courseId }).populate(
-        "courseId"
+        "courseId",
       );
       if (!course) {
         return responses.failureResponse(
           "There is no Course with this ID",
-          404
+          404,
         );
       }
 
       return responses.successResponse(
         "Course fetched successfully",
         200,
-        course
+        course,
       );
     } catch (error) {
       console.error("Error in fetching course:", error);
@@ -291,12 +331,12 @@ export default class StudentClass {
       const totalEnrolledCourses = courses.length;
 
       const completedCourses = courses.filter(
-        (course) => course.isCompleted === 1
+        (course) => course.isCompleted === 1,
       ).length;
 
       const totalWatchTimeMinutes = courses.reduce(
         (acc, course) => acc + course.minutesSpent,
-        0
+        0,
       );
       const totalWatchTimeHours = (totalWatchTimeMinutes / 60).toFixed(2);
 
@@ -334,7 +374,7 @@ export default class StudentClass {
         }).populate("courseId");
 
         const categories = studentCourses.map(
-          (course) => course.courseId.category
+          (course) => course.courseId.category,
         );
 
         // to recommend courses from the same category
@@ -345,7 +385,7 @@ export default class StudentClass {
         }).populate("courseId");
 
         const categories = studentCourses.map(
-          (course) => course.courseId.category
+          (course) => course.courseId.category,
         );
 
         // to recommend courses from different categories
@@ -375,7 +415,7 @@ export default class StudentClass {
       return responses.successResponse(
         "Your recommended courses are: ",
         200,
-        returnData
+        returnData,
       );
     } catch (error) {
       console.error("An error occured", error);
@@ -396,13 +436,13 @@ export default class StudentClass {
         payload,
         {
           new: true,
-        }
+        },
       );
 
       return responses.successResponse(
         "student details updated successfully",
         200,
-        updatedStudent
+        updatedStudent,
       );
     } catch (error) {
       console.error("There was an error updating this student", error);
@@ -420,7 +460,7 @@ export default class StudentClass {
       if (!student) {
         return responses.failureResponse(
           "Invalid student token. There is no student with this Id",
-          400
+          400,
         );
       }
 
@@ -438,19 +478,19 @@ export default class StudentClass {
       const updatedStudent = await Student.findByIdAndUpdate(
         studentId,
         { password: newpassword },
-        { new: true }
+        { new: true },
       );
 
       return responses.successResponse(
         "student password updated successfully",
         200,
-        updatedStudent
+        updatedStudent,
       );
     } catch (error) {
       console.error("Unable to update the password", error);
       return responses.failureResponse(
         "There was an error updating the student password",
-        500
+        500,
       );
     }
   }
@@ -461,34 +501,34 @@ export default class StudentClass {
       const student = await Student.findOneAndUpdate(
         { _id: studentId, isActive: true },
         { isActive: false, deletedAt: new Date() },
-        { new: true }
+        { new: true },
       );
 
       if (!student) {
         return responses.failureResponse(
           "Student not found or already deleted",
-          404
+          404,
         );
       }
 
       // Mark related data as inactive (instead of deletion)
       await PurchasedCourse.updateMany(
         { studentId },
-        { $set: { isActive: false } }
+        { $set: { isActive: false } },
       );
       await Review.updateMany({ studentId }, { $set: { isActive: false } });
       await Comment.updateMany({ studentId }, { $set: { isActive: false } });
       await Chat.updateMany(
         { student: studentId },
-        { $set: { isActive: false } }
+        { $set: { isActive: false } },
       );
       await Messages.updateMany(
         { senderId: studentId },
-        { $set: { isActive: false } }
+        { $set: { isActive: false } },
       );
       await Messages.updateMany(
         { receiverId: studentId },
-        { $set: { isActive: false } }
+        { $set: { isActive: false } },
       );
 
       // Keep Payments but remove studentId
@@ -497,7 +537,7 @@ export default class StudentClass {
       return responses.successResponse(
         "Account deleted successfully",
         200,
-        student
+        student,
       );
     } catch (error) {
       console.error("Error deleting student account:", error);
@@ -511,7 +551,7 @@ export default class StudentClass {
       const student = await Student.findByIdAndUpdate(
         studentId,
         { $set: { privacySettings: settings } },
-        { new: true }
+        { new: true },
       );
 
       if (!student) {
@@ -521,7 +561,7 @@ export default class StudentClass {
       return responses.successResponse(
         "Privacy settings updated successfully",
         200,
-        student
+        student,
       );
     } catch (error) {
       console.error("There was an error", error);
