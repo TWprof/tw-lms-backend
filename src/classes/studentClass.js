@@ -249,34 +249,31 @@ export default class StudentClass {
         studentId,
       }).populate("courseId");
 
-      const data = purchasedCourses.map((purchased) => {
-        const lectures = purchased.courseId.lectures || [];
+      const courses = purchasedCourses.map((purchased) => {
+        const courseObj = purchased.toObject();
+
+        const lectures = courseObj.courseId?.lectures || [];
 
         const totalVideos = lectures.reduce(
-          (sum, lecture) => sum + lecture.videoURLs.length,
+          (sum, lecture) => sum + (lecture.videoURLs?.length || 0),
           0,
         );
 
         const watchedVideos = new Set(
-          purchased.progress
+          (courseObj.progress || [])
             .filter((p) => p.completed)
             .map((p) => p.videoId.toString()),
         ).size;
 
-        // find last incomplete video (resume point)
-        const lastProgress = purchased.progress
+        const lastProgress = (courseObj.progress || [])
           .filter((p) => !p.completed)
-          .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+          .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
 
         return {
-          courseId: purchased.courseId._id,
-          title: purchased.courseId.title,
-          thumbnailURL: purchased.courseId.thumbnailURL,
-
-          progressCount: `${watchedVideos}/${totalVideos}`,
+          ...courseObj,
           watchedVideos,
           totalVideos,
-
+          progressCount: `${watchedVideos}/${totalVideos}`,
           resume: lastProgress
             ? {
                 lectureId: lastProgress.lectureId,
@@ -284,12 +281,10 @@ export default class StudentClass {
                 timestamp: lastProgress.timestamp,
               }
             : null,
-
-          isCompleted: purchased.isCompleted === 1,
         };
       });
 
-      return responses.successResponse("Your courses are", 200, data);
+      return responses.successResponse("Your courses are", 200, courses);
     } catch (error) {
       console.error("Unable to get courses", error);
       return responses.failureResponse("Failed to fetch courses", 500);
