@@ -294,15 +294,51 @@ export default class StudentClass {
   // Get Each student Course
   async getEachCourse(courseId) {
     try {
-      const course = await PurchasedCourse.findOne({ courseId }).populate(
-        "courseId",
-      );
-      if (!course) {
+      const purchasedCourse = await PurchasedCourse.findOne({
+        courseId,
+      }).populate("courseId");
+
+      if (!purchasedCourse) {
         return responses.failureResponse(
           "There is no Course with this ID",
           404,
         );
       }
+
+      const purchasedCourseObj = purchasedCourse.toObject();
+
+      const lectures = purchasedCourseObj.courseId?.lectures || [];
+
+      const totalVideos = lectures.reduce(
+        (sum, lecture) => sum + (lecture.videoURLs?.length || 0),
+        0,
+      );
+
+      const watchedVideos = new Set(
+        (purchasedCourseObj.progress || [])
+          .filter((p) => p.completed)
+          .map((p) => p.videoId.toString()),
+      ).size;
+
+      const lastProgress = (purchasedCourseObj.progress || [])
+        .filter((p) => !p.completed)
+        .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
+
+      const course = {
+        ...purchasedCourseObj,
+
+        watchedVideos,
+        totalVideos,
+        progressCount: `${watchedVideos}/${totalVideos}`,
+
+        resume: lastProgress
+          ? {
+              lectureId: lastProgress.lectureId,
+              videoId: lastProgress.videoId,
+              timestamp: lastProgress.timestamp,
+            }
+          : null,
+      };
 
       return responses.successResponse(
         "Course fetched successfully",
