@@ -10,7 +10,7 @@ const studentController = {
   // Verify User Email
   verifySignUp: async (req, res) => {
     const data = await new StudentClass().verifySignUp(
-      req.query.verificationToken
+      req.query.verificationToken,
     );
     res.status(data.statusCode).json(data);
   },
@@ -49,7 +49,8 @@ const studentController = {
   // Get Each Student Course Controller
   getEachCourse: async (req, res) => {
     const { courseId } = req.params;
-    const data = await new StudentClass().getEachCourse(courseId);
+    const studentId = req.user._id;
+    const data = await new StudentClass().getEachCourse(studentId, courseId);
     res.status(data.statusCode).json(data);
   },
 
@@ -68,7 +69,7 @@ const studentController = {
       studentId,
       parseInt(page) || 1,
       parseInt(limit) || 10,
-      type || "random"
+      type || "random",
     );
     res.status(data.statusCode).json(data);
   },
