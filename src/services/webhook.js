@@ -51,7 +51,7 @@ const webhookServices = {
           currency: payload.data.currency,
           status: "success",
         },
-        { new: true, upsert: true }
+        { new: true, upsert: true },
       );
 
       const student = await Student.findById(studentId);
@@ -110,7 +110,7 @@ const webhookServices = {
             subject: "Course Purchase Notification",
             message: tutorEmailTemplate,
           },
-          constants.notifyPurchase
+          constants.notifyPurchase,
         );
       }
 

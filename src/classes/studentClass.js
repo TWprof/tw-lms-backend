@@ -292,15 +292,25 @@ export default class StudentClass {
   }
 
   // Get Each student Course
-  async getEachCourse(courseId) {
+  async getEachCourse(studentId, courseId) {
     try {
       const purchasedCourse = await PurchasedCourse.findOne({
+        studentId,
         courseId,
-      }).populate("courseId");
+      })
+        .populate("courseId")
+        .populate({
+          path: "progress.lectureId",
+          select: "title lectureNumber",
+        })
+        .populate({
+          path: "progress.videoId",
+          select: "url filename duration",
+        });
 
       if (!purchasedCourse) {
         return responses.failureResponse(
-          "There is no Course with this ID",
+          "There is no purchased course with this ID",
           404,
         );
       }
@@ -317,7 +327,7 @@ export default class StudentClass {
       const watchedVideos = new Set(
         (purchasedCourseObj.progress || [])
           .filter((p) => p.completed)
-          .map((p) => p.videoId.toString()),
+          .map((p) => p.videoId?._id?.toString()),
       ).size;
 
       const lastProgress = (purchasedCourseObj.progress || [])
@@ -326,11 +336,9 @@ export default class StudentClass {
 
       const course = {
         ...purchasedCourseObj,
-
         watchedVideos,
         totalVideos,
         progressCount: `${watchedVideos}/${totalVideos}`,
-
         resume: lastProgress
           ? {
               lectureId: lastProgress.lectureId,
